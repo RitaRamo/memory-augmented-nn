@@ -7,6 +7,7 @@ from scipy.misc import imread, imresize
 from tqdm import tqdm
 from collections import Counter
 from random import seed, choice, sample
+from datetime import datetime
 
 
 def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_image, min_word_freq, output_folder,
@@ -30,21 +31,60 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
         data = json.load(j)
 
     # Read image paths and captions for each image
+    images_cocotoolkiteval = []
+    annotations = []
+    id_annotation = 0
+
     train_image_paths = []
     train_image_captions = []
+    train_image_id = []
+
     val_image_paths = []
     val_image_captions = []
+    val_image_id = []
+
     test_image_paths = []
     test_image_captions = []
+    test_image_id = []
+
     word_freq = Counter()
 
     for img in data['images']:
+
+        if img['split'] in {'test'}:
+            images_cocotoolkiteval.append(
+                {
+                    "id": img['imgid'],
+                    "width": 0,
+                    "height": 0,
+                    "file_name": img['filename'],
+                    "license": 1,
+                    "flickr_url": "",
+                    "coco_url": "",
+                    "date_captured": str(datetime.now()),
+                }
+            )
+
         captions = []
+        captions_imgid = []
+
         for c in img['sentences']:
             # Update word frequency
             word_freq.update(c['tokens'])
             if len(c['tokens']) <= max_len:
                 captions.append(c['tokens'])
+                captions_imgid.append(img['imgid'])
+
+            if img['split'] in {'test'}:
+                caption_sentence = " ".join(c['tokens'])
+                annotations.append(
+                    {
+                        "id": id_annotation,
+                        "image_id": img['imgid'],
+                        "caption": caption_sentence,
+                    }
+                )
+                id_annotation += 1
 
         if len(captions) == 0:
             continue
@@ -55,12 +95,43 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
         if img['split'] in {'train', 'restval'}:
             train_image_paths.append(path)
             train_image_captions.append(captions)
+            train_image_id.extend(captions_imgid)
         elif img['split'] in {'val'}:
             val_image_paths.append(path)
             val_image_captions.append(captions)
+            val_image_id.extend(captions_imgid)
         elif img['split'] in {'test'}:
             test_image_paths.append(path)
             test_image_captions.append(captions)
+            test_image_id.extend(captions_imgid)
+
+    info = {
+        "year": 2020,
+        "version": 1,
+        "description": "none",
+        "contributor": "none",
+        "url": "none",
+        "date_created": str(datetime.now()),
+    }
+
+    licenses = [
+        {
+            "id": 1,
+            "name": "",
+            "url": ""
+        }
+    ]
+
+    test_coco_format = {
+        "info": info,
+        "images": images_cocotoolkiteval,
+        "annotations": annotations,
+        "licenses": licenses,
+        "type": "captions"
+    }
+
+    with open(output_folder + "TEST_COCOTOOLKIT_FORMAT.json", 'w+') as f:
+        json.dump(test_coco_format, f, indent=2)
 
     # Sanity check
     assert len(train_image_paths) == len(train_image_captions)
@@ -76,7 +147,9 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
     word_map['<pad>'] = 0
 
     # Create a base/root name for all output files
-    base_filename = dataset + '_' + str(captions_per_image) + '_cap_per_img_' + str(min_word_freq) + '_min_word_freq'
+    base_filename = dataset + '_' + \
+        str(captions_per_image) + '_cap_per_img_' + \
+        str(min_word_freq) + '_min_word_freq'
 
     # Save word map to a JSON
     with open(os.path.join(output_folder, 'WORDMAP_' + base_filename + '.json'), 'w') as j:
@@ -84,16 +157,18 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
     # Sample captions for each image, save images to HDF5 file, and captions and their lengths to JSON files
     seed(123)
-    for impaths, imcaps, split in [(train_image_paths, train_image_captions, 'TRAIN'),
-                                   (val_image_paths, val_image_captions, 'VAL'),
-                                   (test_image_paths, test_image_captions, 'TEST')]:
+    for impaths, imcaps, img_ids, split in [(train_image_paths, train_image_captions, train_image_id, 'TRAIN'),
+                                            (val_image_paths, val_image_captions,
+                                             val_image_id, 'VAL'),
+                                            (test_image_paths, test_image_captions, test_image_id, 'TEST')]:
 
         with h5py.File(os.path.join(output_folder, split + '_IMAGES_' + base_filename + '.hdf5'), 'a') as h:
             # Make a note of the number of captions we are sampling per image
             h.attrs['captions_per_image'] = captions_per_image
 
             # Create dataset inside HDF5 file to store images
-            images = h.create_dataset('images', (len(impaths), 3, 256, 256), dtype='uint8')
+            images = h.create_dataset(
+                'images', (len(impaths), 3, 256, 256), dtype='uint8')
 
             print("\nReading %s images and captions, storing to file...\n" % split)
 
@@ -104,7 +179,8 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
                 # Sample captions
                 if len(imcaps[i]) < captions_per_image:
-                    captions = imcaps[i] + [choice(imcaps[i]) for _ in range(captions_per_image - len(imcaps[i]))]
+                    captions = imcaps[i] + [choice(imcaps[i])
+                                            for _ in range(captions_per_image - len(imcaps[i]))]
                 else:
                     captions = sample(imcaps[i], k=captions_per_image)
 
@@ -136,7 +212,8 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
                     caplens.append(c_len)
 
             # Sanity check
-            assert images.shape[0] * captions_per_image == len(enc_captions) == len(caplens)
+            assert images.shape[0] * \
+                captions_per_image == len(enc_captions) == len(caplens)
 
             # Save encoded captions and their lengths to JSON files
             with open(os.path.join(output_folder, split + '_CAPTIONS_' + base_filename + '.json'), 'w') as j:
@@ -144,6 +221,9 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
             with open(os.path.join(output_folder, split + '_CAPLENS_' + base_filename + '.json'), 'w') as j:
                 json.dump(caplens, j)
+
+            with open(os.path.join(output_folder, split + '_IMGIDS_' + base_filename + '.json'), 'w') as j:
+                json.dump(img_ids, j)
 
 
 def init_embedding(embeddings):
@@ -181,7 +261,8 @@ def load_embeddings(emb_file, word_map):
         line = line.split(' ')
 
         emb_word = line[0]
-        embedding = list(map(lambda t: float(t), filter(lambda n: n and not n.isspace(), line[1:])))
+        embedding = list(map(lambda t: float(t), filter(
+            lambda n: n and not n.isspace(), line[1:])))
 
         # Ignore word if not in train_vocab
         if emb_word not in vocab:

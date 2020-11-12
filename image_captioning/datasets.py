@@ -21,7 +21,8 @@ class CaptionDataset(Dataset):
         assert self.split in {'TRAIN', 'VAL', 'TEST'}
 
         # Open hdf5 file where images are stored
-        self.h = h5py.File(os.path.join(data_folder, self.split + '_IMAGES_' + data_name + '.hdf5'), 'r')
+        self.h = h5py.File(os.path.join(
+            data_folder, self.split + '_IMAGES_' + data_name + '.hdf5'), 'r')
         self.imgs = self.h['images']
 
         # Captions per image
@@ -34,6 +35,10 @@ class CaptionDataset(Dataset):
         # Load caption lengths (completely into memory)
         with open(os.path.join(data_folder, self.split + '_CAPLENS_' + data_name + '.json'), 'r') as j:
             self.caplens = json.load(j)
+
+        # Load image_id (completely into memory)
+        with open(os.path.join(data_folder, self.split + '_IMGIDS_' + data_name + '.json'), 'r') as j:
+            self.imgids = json.load(j)
 
         # PyTorch transformation pipeline for the image (normalizing, etc.)
         self.transform = transform
@@ -57,7 +62,11 @@ class CaptionDataset(Dataset):
             # For validation of testing, also return all 'captions_per_image' captions to find BLEU-4 score
             all_captions = torch.LongTensor(
                 self.captions[((i // self.cpi) * self.cpi):(((i // self.cpi) * self.cpi) + self.cpi)])
-            return img, caption, caplen, all_captions
+            if self.split is "TEST":
+                img_id = self.imgids[i]
+                return img, caption, caplen, all_captions, img_id
+            else:
+                return img, caption, caplen, all_captions
 
     def __len__(self):
         return self.dataset_size
