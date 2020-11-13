@@ -33,7 +33,7 @@ cudnn.benchmark = True
 # Training parameters
 start_epoch = 0
 # number of epochs to train for (if early stopping is not triggered)
-epochs = 120
+epochs = 1
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
 batch_size = 32
@@ -46,6 +46,7 @@ best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
+MODEL_TYPE = "BASELINE"
 
 
 def main():
@@ -144,7 +145,7 @@ def main():
             epochs_since_improvement = 0
 
         # Save checkpoint
-        save_checkpoint(data_name, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
+        save_checkpoint(data_name + "_"+MODEL_TYPE, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
                         decoder_optimizer, recent_bleu4, is_best)
 
 

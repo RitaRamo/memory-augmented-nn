@@ -9,14 +9,21 @@ from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
 
-MODEL_TYPE = "DISCRETE_WT"
+MODEL_TYPE == "BASELINE"
+
+if MODEL_TYPE == "BASELINE":
+    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_BASELINE.pth.tar'
+elif MODEL_TYPE == "NEAREST":
+    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_NEAREST.pth.tar'
+elif MODEL_TYPE == "ATTENTION_NEAREST":
+    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_ATTENTION_NEAREST.pth.tar'
 # Parameters
 # folder with data files saved by create_input_files.py
 data_folder = 'dataset_splits'
 # base name shared by data files
 data_name = 'flickr8k_5_cap_per_img_5_min_word_freq'
 # model checkpoint
-checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq.pth.tar'
+#checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq.pth.tar'
 # word map, ensure it's the same the data was encoded with and the model was trained with
 word_map_file = 'dataset_splits/WORDMAP_flickr8k_5_cap_per_img_5_min_word_freq.json'
 # sets device for model and PyTorch tensors
@@ -224,6 +231,18 @@ def evaluate(beam_size):
 
     with open("SAT_discrete.json", 'w+') as f:
         json.dump(list_hipotheses, f, indent=2)
+
+    if MODEL_TYPE == "BASELINE":
+        with open("baseline.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "NEAREST":
+        with open("nearest.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "ATTENTION_NEAREST":
+        with open("SATN.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    else:
+        raise Exception("unknow model")
 
     # Calculate BLEU-4 scores
     bleu4 = corpus_bleu(references, hypotheses_bleu)
