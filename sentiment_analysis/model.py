@@ -5,24 +5,6 @@ import torch.nn.functional as F
 torch.manual_seed(1234)
 torch.cuda.manual_seed(1234)
 
-
-class RNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim):
-        super().__init__()
-
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.rnn = nn.RNN(embedding_dim, hidden_dim)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x):
-        embedded = self.embedding(x)
-        output, hidden = self.rnn(embedded)
-
-        assert torch.equal(output[-1, :, :], hidden.squeeze(0))
-
-        return self.fc(hidden.squeeze(0))
-
-
 class LSTM(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim,
                  n_layers=1, use_bidirectional=False, use_dropout=False):
@@ -47,32 +29,6 @@ class LSTM(nn.Module):
 
         return self.fc(hidden.squeeze(0))
         # return self.fc(self.dropout(output))
-
-
-class CNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, n_filters, filter_sizes,
-                 output_dim, use_dropout):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.convs = nn.ModuleList([
-            nn.Conv2d(in_channels=1, out_channels=n_filters,
-                      kernel_size=(fs, embedding_dim)) for fs in filter_sizes
-        ])
-        self.fc = nn.Linear(len(filter_sizes) * n_filters, output_dim)
-        self.dropout = nn.Dropout(0.5 if use_dropout else 0.)
-
-    def forward(self, x):
-        x = x.permute(1, 0)
-        embedded = self.embedding(x)
-        embedded = embedded.unsqueeze(1)
-
-        conved = [F.relu(conv(embedded)).squeeze(3) for conv in self.convs]
-        pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
-
-        cat = self.dropout(torch.cat(pooled, dim=1))
-
-        return self.fc(cat)
-
 
 class LSTM_with_Attention(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim,
@@ -112,11 +68,3 @@ class LSTM_with_Attention(nn.Module):
         attn_output = self.attention(output, hidden)
 
         return self.fc(attn_output.squeeze(0))
-
-
-class CNN_LSTM(nn.Module):
-    def __init__(self):
-        pass
-
-    def forward(self, x):
-        pass

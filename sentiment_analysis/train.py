@@ -8,7 +8,9 @@ from tensorboardX import SummaryWriter
 from glob import glob
 
 from dataset import MyDataset
-from model import RNN, LSTM, CNN, LSTM_with_Attention
+from model import LSTM, LSTM_with_Attention
+import sklearn
+
 
 
 def generate_experiment_name():
@@ -97,6 +99,12 @@ def binary_accuracy(preds, y):
     acc = correct.sum() / len(correct)
     return acc
 
+def f_score(preds,y):
+    """
+    Returns F score per batch
+    """
+    return sklearn.metrics.f1_score(y,preds)
+
 
 def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() and args.cuda else 'cpu')
@@ -106,12 +114,8 @@ def main(args):
     INPUT_DIM = len(dataset.TEXT.vocab)
     OUTPUT_DIM = 1
 
-    # TODO: SVM
 
-    if args.model == 'rnn':
-        print("Model: Vanila RNN")
-        model = RNN(INPUT_DIM, args.ed, args.hd, OUTPUT_DIM).to(device)
-    elif args.model == 'lstm':
+    if args.model == 'lstm':
         print("Model: LSTM")
         model = LSTM(
             INPUT_DIM, args.ed, args.hd, OUTPUT_DIM,
@@ -123,11 +127,6 @@ def main(args):
             INPUT_DIM, args.ed, args.hd, OUTPUT_DIM,
             n_layers=args.layer, use_bidirectional=args.bidirectional,
             use_dropout=args.dropout).to(device)
-    elif args.model == 'cnn':
-        print("Model: CNN")
-        model = CNN(
-            INPUT_DIM, args.ed, args.filter, args.filter_size, OUTPUT_DIM,
-            args.dropout).to(device)
 
     if args.word_vector:
         model.embedding.weight.data.copy_(dataset.TEXT.vocab.vectors)
@@ -144,9 +143,9 @@ def main(args):
     for epoch in range(args.epoch):
         train_loss, train_acc = train(model, dataset.dataloader['train'],
                                       optimizer, criterion)
-        valid_loss, valid_acc = evaluate(model, dataset.dataloader['dev'],
+        valid_loss, valid_acc, val_F_score = evaluate(model, dataset.dataloader['dev'],
                                          criterion)
-        test_loss, test_acc = evaluate(model, dataset.dataloader['test'],
+        test_loss, test_acc, test_F_score = evaluate(model, dataset.dataloader['test'],
                                        criterion)
         print(f'Epoch: {epoch+1:02}, Train Loss: {train_loss:.3f}, Train Acc: {train_acc * 100:.2f}%, Val. Loss: {valid_loss:.3f}, Val. Acc: {valid_acc * 100:.2f}%, Test Loss: {test_loss:.3f}, Test Acc: {test_acc * 100:.2f}%')
 
@@ -208,6 +207,7 @@ def evaluate(model, iterator, criterion):
         pred = model(batch.text).squeeze(1)
         loss = criterion(pred, batch.label)
         acc = binary_accuracy(pred, batch.label)
+        f_score = f_score(pred.batch.label)
 
         epoch_loss += loss.item()
         epoch_acc += acc.item()
