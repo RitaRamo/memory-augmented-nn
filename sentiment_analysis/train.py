@@ -103,7 +103,7 @@ def f_score(preds,y):
     """
     Returns F score per batch
     """
-    return sklearn.metrics.f1_score(y,preds)
+    return sklearn.metrics.f1_score(y,torch.round(F.sigmoid(preds)))
 
 
 def main(args):
@@ -200,6 +200,7 @@ def train(model, iterator, optimizer, criterion):
 def evaluate(model, iterator, criterion):
     epoch_loss = 0
     epoch_acc = 0
+    epoch_f_score = 0
 
     model.eval()
     for batch in iterator:
@@ -207,13 +208,13 @@ def evaluate(model, iterator, criterion):
         pred = model(batch.text).squeeze(1)
         loss = criterion(pred, batch.label)
         acc = binary_accuracy(pred, batch.label)
-        f_score = f_score(pred.batch.label)
+        f_score = f_score(pred, batch.label)
 
         epoch_loss += loss.item()
         epoch_acc += acc.item()
+        epoch_f_score += f_score.item()
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
-
+    return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f_score / len(iterator)
 
 if __name__ == '__main__':
     args = parse_args()

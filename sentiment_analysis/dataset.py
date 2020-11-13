@@ -8,9 +8,6 @@ from torchtext import datasets
 torch.manual_seed(1234)
 torch.cuda.manual_seed(1234)
 
-import torch
-from torchtext import data
-
 torch.backends.cudnn.deterministic = True
 
 
