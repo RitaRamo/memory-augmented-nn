@@ -1,16 +1,15 @@
 import torch
 from torchtext import data
 from torchtext import datasets
+from sklearn.metrics import f1_score
 
 SEED = 1234
 
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-TEXT = data.Field(tokenize='revtok', include_lengths=True)
+TEXT = data.Field(tokenize='spacy', include_lengths=True)
 LABEL = data.LabelField(dtype=torch.float)
-
-from torchtext import datasets
 
 train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
 
@@ -148,9 +147,15 @@ def binary_accuracy(preds, y):
     return acc
 
 
+def f1score(preds, y):
+    predictions = torch.round(torch.sigmoid(preds))
+    return f1_score(y.cpu().detach().numpy(), predictions.cpu().detach().numpy())
+
+
 def train(model, iterator, optimizer, criterion):
     epoch_loss = 0
     epoch_acc = 0
+    epoch_f1 = 0
 
     model.train()
 
@@ -165,20 +170,23 @@ def train(model, iterator, optimizer, criterion):
 
         acc = binary_accuracy(predictions, batch.label)
 
+        f1 = f1score(predictions, batch.label)
+
         loss.backward()
 
         optimizer.step()
 
         epoch_loss += loss.item()
         epoch_acc += acc.item()
+        epoch_f1 += f1.item()
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+    return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
 
 def evaluate(model, iterator, criterion):
     epoch_loss = 0
     epoch_acc = 0
-
+    epoch_f1 = 0
     model.eval()
 
     with torch.no_grad():
@@ -189,12 +197,15 @@ def evaluate(model, iterator, criterion):
 
             loss = criterion(predictions, batch.label)
 
+            f1 = f1score(predictions, batch.label)
+
             acc = binary_accuracy(predictions, batch.label)
 
             epoch_loss += loss.item()
             epoch_acc += acc.item()
+            epoch_f1 += f1.item()
 
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+    return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
 
 import time
@@ -215,8 +226,8 @@ for epoch in range(N_EPOCHS):
 
     start_time = time.time()
 
-    train_loss, train_acc = train(model, train_iterator, optimizer, criterion)
-    valid_loss, valid_acc = evaluate(model, valid_iterator, criterion)
+    train_loss, train_acc, train_f1 = train(model, train_iterator, optimizer, criterion)
+    valid_loss, valid_acc, valid_f1 = evaluate(model, valid_iterator, criterion)
 
     end_time = time.time()
 
@@ -227,12 +238,12 @@ for epoch in range(N_EPOCHS):
         torch.save(model.state_dict(), 'tut2-model.pt')
 
     print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-    print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}%')
-    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}%')
+    print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}% | Train f1-score {train_f1:.3f}')
+    print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}% | Val. f1-score {valid_f1:.3f}')
 
 model.load_state_dict(torch.load('tut2-model.pt'))
 
-test_loss, test_acc = evaluate(model, test_iterator, criterion)
+test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
-print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}%')
+print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}% | Test f1-score {test_f1:.3f} ')
 
