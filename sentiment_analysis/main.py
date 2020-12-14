@@ -2,13 +2,20 @@ import torch
 from torchtext import data
 from torchtext import datasets
 from sklearn.metrics import f1_score
+import re
 
 SEED = 1234
 
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-TEXT = data.Field(tokenize='spacy', include_lengths=True)
+
+def tokenizer(doc):
+    return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
+            i != '' and i != ' ' and i != '\n']
+
+
+TEXT = data.Field(tokenize=tokenizer, include_lengths=True)
 LABEL = data.LabelField(dtype=torch.float)
 
 train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
