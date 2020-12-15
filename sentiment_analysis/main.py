@@ -3,20 +3,28 @@ from torchtext import data
 from torchtext import datasets
 from sklearn.metrics import f1_score
 import re
+import nltk
 
 SEED = 1234
 
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
+nltk.download('wordnet')
+
+lemmatizer = WordNetLemmatizer()
+
 
 def tokenizer(doc):
-    return [i for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
+    return [lemmatizer.lemmatize(i.lower()) for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
             i != '' and i != ' ' and i != '\n']
 
 
 TEXT = data.Field(tokenize=tokenizer, include_lengths=True)
+
 LABEL = data.LabelField(dtype=torch.float)
+
+from torchtext import datasets
 
 train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
 
