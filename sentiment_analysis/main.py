@@ -3,28 +3,22 @@ from torchtext import data
 from torchtext import datasets
 from sklearn.metrics import f1_score
 import re
-import nltk
+
 
 SEED = 1234
 
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 
-nltk.download('wordnet')
-
-lemmatizer = WordNetLemmatizer()
-
 
 def tokenizer(doc):
-    return [lemmatizer.lemmatize(i.lower()) for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
+    return [i.lower() for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
             i != '' and i != ' ' and i != '\n']
 
 
 TEXT = data.Field(tokenize=tokenizer, include_lengths=True)
 
 LABEL = data.LabelField(dtype=torch.float)
-
-from torchtext import datasets
 
 train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
 
@@ -59,6 +53,14 @@ class RNN(nn.Module):
                  bidirectional, dropout, pad_idx):
         super().__init__()
 
+        #    def attention(self, lstm_output, final_state):
+        #      lstm_output = lstm_output.permute(1, 0, 2)
+        #      merged_state = torch.cat([s for s in final_state], 1)
+        #      merged_state = merged_state.squeeze(0).unsqueeze(2)
+        #      weights = torch.bmm(lstm_output, merged_state)
+        #      weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
+        #      return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
+
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
 
         self.rnn = nn.LSTM(embedding_dim,
@@ -70,6 +72,37 @@ class RNN(nn.Module):
         self.fc = nn.Linear(hidden_dim * 2, output_dim)
 
         self.dropout = nn.Dropout(dropout)
+
+    #   def forward(self, text, text_lengths):
+    #       # text = [sent len, batch size]
+    #
+    #       embedded = self.dropout(self.embedding(text))
+    #
+    #
+    #       # embedded = [sent len, batch size, emb dim]
+    #
+    #       # pack sequence
+    #       packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.cpu())
+    #
+    #       packed_output, (hidden, cell) = self.rnn(packed_embedded)
+    #
+    #       # unpack sequence
+    #       output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output)
+    #
+    #       # output = [sent len, batch size, hid dim * num directions]
+    #       # output over padding tokens are zero tensors
+    #
+    #       # hidden = [num layers * num directions, batch size, hid dim]
+    #
+    #       # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
+    #       # and apply dropout
+    #
+    #       hidden = self.dropout(torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1))
+    #
+    #       attn_output = self.attention(output, hidden)
+    #       # hidden = [batch size, hid dim * num directions]
+    #
+    #       return self.fc(attn_output.squeeze(0))
 
     def forward(self, text, text_lengths):
         # text = [sent len, batch size]
@@ -104,7 +137,7 @@ class RNN(nn.Module):
 
 INPUT_DIM = len(TEXT.vocab)
 EMBEDDING_DIM = 100
-HIDDEN_DIM = 256
+HIDDEN_DIM = 512
 OUTPUT_DIM = 1
 N_LAYERS = 2
 BIDIRECTIONAL = False
@@ -233,8 +266,7 @@ def epoch_time(start_time, end_time):
     return elapsed_mins, elapsed_secs
 
 
-N_EPOCHS = 5
-
+N_EPOCHS = 20
 best_valid_loss = float('inf')
 
 for epoch in range(N_EPOCHS):
