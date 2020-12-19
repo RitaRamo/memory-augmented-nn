@@ -3,12 +3,106 @@ from torchtext import data
 from torchtext import datasets
 from sklearn.metrics import f1_score
 import re
+import random
+import torch.nn as nn
+import numpy as np
+import torch.nn.functional as F
+import time
+
+seed = 1234
+
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
 
 
-SEED = 1234
+#################################################MODEL####################################################
 
-torch.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
+class SARModel(nn.Module):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers, dropout, pad_idx):
+        super().__init__()
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
+
+        self.rnn = nn.LSTM(embedding_dim,
+                           hidden_dim,
+                           num_layers=n_layers)
+
+        self.fc = nn.Linear(hidden_dim, output_dim)
+
+        self.dropout = nn.Dropout(dropout)
+
+    def attention(self, lstm_output, final_state):
+        # lstm_output1 torch.Size([144, 64, 512])
+
+        lstm_output = lstm_output.permute(1, 0, 2)
+        # lstm_output2 torch.Size([64, 144, 512])
+
+        merged_state = torch.cat([s for s in final_state], 1)
+        # merged_state1 torch.Size([64, 512])
+
+        merged_state = merged_state.squeeze(0).unsqueeze(2)
+        # merged_state2 torch.Size([64, 512, 1])
+
+        weights = torch.bmm(lstm_output, merged_state)
+        # weights1 torch.Size([64, 144, 1])
+        weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
+        # weights2 torch.Size([64, 144, 1])
+        # torch.bmm(torch.transpose(lstm_output, 1, 2), weights) torch.Size([64, 512, 1])
+        # torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2) torch.Size([64, 512])
+        return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
+
+    def forward(self, text, text_lengths):
+        # text = [sent len, batch size]
+
+        # text torch.Size([144, 64])
+
+        # text_lenghts torch.Size([64])
+
+        embedded = self.dropout(self.embedding(text))
+        # embedded torch.Size([144, 64, 100])
+        # embedded = [sent len, batch size, emb dim]
+
+        # pack sequence
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.cpu())
+        # packed_embedded torch.Size([9152, 100])
+
+        packed_output, (hidden, cell) = self.rnn(packed_embedded)
+        # packed_output torch.Size([9152, 512])
+
+        # hidden torch.Size([1, 64, 512])
+
+        # cell torch.Size([1, 64, 512])
+
+        # unpack sequence
+        output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output)
+
+        # output torch.Size([144, 64, 512])
+
+        # output_lengths torch.Size([64])
+
+        # output = [sent len, batch size, hid dim]
+        # output over padding tokens are zero tensors
+
+        # hidden = [num layers, batch size, hid dim]
+
+        # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
+        # and apply dropout
+
+        attn_output = self.attention(output, hidden)
+        # attn_output torch.Size([64, 512])
+        # hidden = [batch size, hid dim * num directions]
+        # self.fc(attn_output) torch.Size([64, 1])
+        return self.fc(attn_output)
+
+
+#################################################DATA#####################################################
+
+MAX_VOCAB_SIZE = 25000
+BATCH_SIZE = 64
 
 
 def tokenizer(doc):
@@ -22,11 +116,7 @@ LABEL = data.LabelField(dtype=torch.float)
 
 train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
 
-import random
-
-train_data, valid_data = train_data.split(random_state=random.seed(SEED))
-
-MAX_VOCAB_SIZE = 25_000
+train_data, valid_data = train_data.split(random_state=random.seed(seed))
 
 TEXT.build_vocab(train_data,
                  max_size=MAX_VOCAB_SIZE,
@@ -34,8 +124,6 @@ TEXT.build_vocab(train_data,
                  unk_init=torch.Tensor.normal_)
 
 LABEL.build_vocab(train_data)
-
-BATCH_SIZE = 64
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -45,113 +133,26 @@ train_iterator, valid_iterator, test_iterator = data.BucketIterator.splits(
     sort_within_batch=True,
     device=device)
 
-import torch.nn as nn
+# index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.dim)
 
 
-class RNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers,
-                 bidirectional, dropout, pad_idx):
-        super().__init__()
-
-        #    def attention(self, lstm_output, final_state):
-        #      lstm_output = lstm_output.permute(1, 0, 2)
-        #      merged_state = torch.cat([s for s in final_state], 1)
-        #      merged_state = merged_state.squeeze(0).unsqueeze(2)
-        #      weights = torch.bmm(lstm_output, merged_state)
-        #      weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
-        #      return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
-
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
-
-        self.rnn = nn.LSTM(embedding_dim,
-                           hidden_dim,
-                           num_layers=n_layers,
-                           bidirectional=bidirectional,
-                           dropout=dropout)
-
-        self.fc = nn.Linear(hidden_dim * 2, output_dim)
-
-        self.dropout = nn.Dropout(dropout)
-
-    #   def forward(self, text, text_lengths):
-    #       # text = [sent len, batch size]
-    #
-    #       embedded = self.dropout(self.embedding(text))
-    #
-    #
-    #       # embedded = [sent len, batch size, emb dim]
-    #
-    #       # pack sequence
-    #       packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.cpu())
-    #
-    #       packed_output, (hidden, cell) = self.rnn(packed_embedded)
-    #
-    #       # unpack sequence
-    #       output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output)
-    #
-    #       # output = [sent len, batch size, hid dim * num directions]
-    #       # output over padding tokens are zero tensors
-    #
-    #       # hidden = [num layers * num directions, batch size, hid dim]
-    #
-    #       # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
-    #       # and apply dropout
-    #
-    #       hidden = self.dropout(torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1))
-    #
-    #       attn_output = self.attention(output, hidden)
-    #       # hidden = [batch size, hid dim * num directions]
-    #
-    #       return self.fc(attn_output.squeeze(0))
-
-    def forward(self, text, text_lengths):
-        # text = [sent len, batch size]
-
-        embedded = self.dropout(self.embedding(text))
-
-        # embedded = [sent len, batch size, emb dim]
-
-        # pack sequence
-        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.cpu())
-
-        packed_output, (hidden, cell) = self.rnn(packed_embedded)
-
-        # unpack sequence
-        output, output_lengths = nn.utils.rnn.pad_packed_sequence(packed_output)
-
-        # output = [sent len, batch size, hid dim * num directions]
-        # output over padding tokens are zero tensors
-
-        # hidden = [num layers * num directions, batch size, hid dim]
-        # cell = [num layers * num directions, batch size, hid dim]
-
-        # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
-        # and apply dropout
-
-        hidden = self.dropout(torch.cat((hidden[-2, :, :], hidden[-1, :, :]), dim=1))
-
-        # hidden = [batch size, hid dim * num directions]
-
-        return self.fc(hidden)
-
+############################################TRAIN#################################################
 
 INPUT_DIM = len(TEXT.vocab)
 EMBEDDING_DIM = 100
 HIDDEN_DIM = 512
 OUTPUT_DIM = 1
-N_LAYERS = 2
-BIDIRECTIONAL = False
+N_LAYERS = 1
 DROPOUT = 0.5
 PAD_IDX = TEXT.vocab.stoi[TEXT.pad_token]
 
-model = RNN(INPUT_DIM,
-            EMBEDDING_DIM,
-            HIDDEN_DIM,
-            OUTPUT_DIM,
-            N_LAYERS,
-            BIDIRECTIONAL,
-            DROPOUT,
-            PAD_IDX)
+model = SARModel(INPUT_DIM,
+                 EMBEDDING_DIM,
+                 HIDDEN_DIM,
+                 OUTPUT_DIM,
+                 N_LAYERS,
+                 DROPOUT,
+                 PAD_IDX)
 
 
 def count_parameters(model):
@@ -256,9 +257,6 @@ def evaluate(model, iterator, criterion):
     return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
 
-import time
-
-
 def epoch_time(start_time, end_time):
     elapsed_time = end_time - start_time
     elapsed_mins = int(elapsed_time / 60)
@@ -293,4 +291,12 @@ model.load_state_dict(torch.load('tut2-model.pt'))
 test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
 print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}% | Test f1-score {test_f1:.3f} ')
+
+#: 01 | Epoch Time: 0m 34s#
+#	Train Loss: 0.666 | Train Acc: 59.25% | Train f1-score 0.528
+#	 Val. Loss: 0.783 |  Val. Acc: 53.55% | Val. f1-score 0.167
+# Epoch: 02 | Epoch Time: 0m 34s
+#	Train Loss: 0.574 | Train Acc: 69.99% | Train f1-score 0.660
+#	 Val. Loss: 0.467 |  Val. Acc: 79.59% | Val. f1-score 0.794
+
 
