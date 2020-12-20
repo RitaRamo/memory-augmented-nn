@@ -8,6 +8,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 import time
+import torch.optim as optim
 
 seed = 1234
 
@@ -22,7 +23,7 @@ if torch.cuda.is_available():
 #################################################MODEL####################################################
 
 class SARModel(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, n_layers, dropout, pad_idx):
+    def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, attention_dim, n_layers, dropout, pad_idx):
         super().__init__()
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
@@ -31,29 +32,67 @@ class SARModel(nn.Module):
                            hidden_dim,
                            num_layers=n_layers)
 
-        self.fc = nn.Linear(hidden_dim, output_dim)
+        self.fc = nn.Linear(attention_dim, output_dim)
 
         self.dropout = nn.Dropout(dropout)
+        ############Attention###########
+        self.hiddens_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform hidden states
+        self.final_hidden_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform last hidden state
+        self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-    def attention(self, lstm_output, final_state):
-        # lstm_output1 torch.Size([144, 64, 512])
+    #    def attention(self, lstm_output, final_state):
+    #        #lstm_output1 torch.Size([144, 64, 512])
+    #
+    #       lstm_output = lstm_output.permute(1, 0, 2)
+    #        #lstm_output2 torch.Size([64, 144, 512])
+    #
+    #        merged_state = torch.cat([s for s in final_state], 1)
+    #        #merged_state1 torch.Size([64, 512])
+    #
+    #        merged_state = merged_state.squeeze(0).unsqueeze(2)
+    #        #merged_state2 torch.Size([64, 512, 1])
+    #
+    #        weights = torch.bmm(lstm_output, merged_state)
+    #        #weights1 torch.Size([64, 144, 1])
+    #        weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
+    #        #weights2 torch.Size([64, 144, 1])
+    #        #torch.bmm(torch.transpose(lstm_output, 1, 2), weights) torch.Size([64, 512, 1])
+    #        #torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2) torch.Size([64, 512])
+    #        return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
 
-        lstm_output = lstm_output.permute(1, 0, 2)
-        # lstm_output2 torch.Size([64, 144, 512])
+    def attention(self, hiddens, final_hidden):
+        """
+        Forward propagation.
+        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        :param decoder_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
+        :return: attention weighted encoding, weights
+        """
+        # lstm_output = lstm_output.permute(1, 0, 2)
 
-        merged_state = torch.cat([s for s in final_state], 1)
-        # merged_state1 torch.Size([64, 512])
+        # hiddens torch.Size([611, 64, 512])
 
-        merged_state = merged_state.squeeze(0).unsqueeze(2)
-        # merged_state2 torch.Size([64, 512, 1])
+        hiddens = hiddens.permute(1, 0, 2)
+        # hiddens torch.Size([64, 611, 512])
 
-        weights = torch.bmm(lstm_output, merged_state)
-        # weights1 torch.Size([64, 144, 1])
-        weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
-        # weights2 torch.Size([64, 144, 1])
-        # torch.bmm(torch.transpose(lstm_output, 1, 2), weights) torch.Size([64, 512, 1])
-        # torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2) torch.Size([64, 512])
-        return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
+        att1 = self.hiddens_att(hiddens)  # (batch_size, num_hiddens(words), attention_dim)
+        # att1 torch.Size([64, 611, 512])
+
+        # final_hidden1 torch.Size([1, 64, 512])
+
+        att2 = self.final_hidden_att(final_hidden.permute(1, 0, 2))  # (batch_size, 1, attention_dim)
+        # att2 torch.Size([64, 1, 512])
+
+        att = self.full_att(self.tanh(att1 + att2)).squeeze(2)  # (batch_size, num_hiddens(words), 1)
+        # att torch.Size([64, 611])
+
+        alpha = self.softmax(att)  # (batch_size, num_hiddens(words),1)
+        # alpha torch.Size([64, 611])
+        attention_weighted_encoding = (hiddens * alpha.unsqueeze(-1)).sum(dim=1)  # (batch_size, hidden_dim)
+        # attention_weighted_encoding torch.Size([64, 512])
+
+        return attention_weighted_encoding, alpha
 
     def forward(self, text, text_lengths):
         # text = [sent len, batch size]
@@ -93,11 +132,11 @@ class SARModel(nn.Module):
         # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
         # and apply dropout
 
-        attn_output = self.attention(output, hidden)
+        attn_output, alpha = self.attention(output, hidden)
         # attn_output torch.Size([64, 512])
         # hidden = [batch size, hid dim * num directions]
         # self.fc(attn_output) torch.Size([64, 1])
-        return self.fc(attn_output)
+        return self.fc(self.dropout(attn_output))
 
 
 #################################################DATA#####################################################
@@ -121,7 +160,7 @@ train_data, valid_data = train_data.split(random_state=random.seed(seed))
 
 TEXT.build_vocab(train_data,
                  max_size=MAX_VOCAB_SIZE,
-                 vectors="glove.6B.100d",
+                 vectors="glove.6B.300d",
                  unk_init=torch.Tensor.normal_)
 
 LABEL.build_vocab(train_data)
@@ -134,15 +173,24 @@ train_iterator, valid_iterator, test_iterator = data.BucketIterator.splits(
     sort_within_batch=True,
     device=device)
 
+
 # index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.dim)
 
 
 ############################################TRAIN#################################################
 
+def adjust_learning_rate(optimizer, shrink_factor):
+    print("\nDECAYING learning rate.")
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = param_group['lr'] * shrink_factor
+    print("The new learning rate is %f\n" % (optimizer.param_groups[0]['lr'],))
+
+
 INPUT_DIM = len(TEXT.vocab)
-EMBEDDING_DIM = 100
+EMBEDDING_DIM = 300
 HIDDEN_DIM = 512
 OUTPUT_DIM = 1
+ATTENTION_DIM = 512
 N_LAYERS = 1
 DROPOUT = 0.5
 PAD_IDX = TEXT.vocab.stoi[TEXT.pad_token]
@@ -151,6 +199,7 @@ model = SARModel(INPUT_DIM,
                  EMBEDDING_DIM,
                  HIDDEN_DIM,
                  OUTPUT_DIM,
+                 ATTENTION_DIM,
                  N_LAYERS,
                  DROPOUT,
                  PAD_IDX)
@@ -174,8 +223,6 @@ model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
 model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
 
 print(model.embedding.weight.data)
-
-import torch.optim as optim
 
 optimizer = optim.Adam(model.parameters())
 
@@ -266,9 +313,16 @@ def epoch_time(start_time, end_time):
 
 
 N_EPOCHS = 20
-best_valid_loss = float('inf')
+best_valid_acc = 0
+counter_without_improvement = 0
 
 for epoch in range(N_EPOCHS):
+
+    if counter_without_improvement == 20:
+        break
+
+    if counter_without_improvement > 0 and counter_without_improvement % 8 == 0:
+        adjust_learning_rate(optimizer, 0.8)
 
     start_time = time.time()
 
@@ -279,9 +333,12 @@ for epoch in range(N_EPOCHS):
 
     epoch_mins, epoch_secs = epoch_time(start_time, end_time)
 
-    if valid_loss < best_valid_loss:
-        best_valid_loss = valid_loss
+    if valid_acc > best_valid_acc:
+        counter_without_improvement = 0
+        best_valid_acc = valid_acc
         torch.save(model.state_dict(), 'tut2-model.pt')
+    else:
+        counter_without_improvement += 1
 
     print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
     print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}% | Train f1-score {train_f1:.3f}')
