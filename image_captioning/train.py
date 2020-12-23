@@ -13,13 +13,14 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 
 # Data parameters
+
 # folder with data files saved by create_input_files.py
 data_folder = 'dataset_splits'
 # base name shared by data files
 data_name = 'flickr8k_5_cap_per_img_5_min_word_freq'
 
 # Model parameters
-emb_dim = 512  # dimension of word embeddings
+emb_dim = 300  # dimension of word embeddings
 attention_dim = 512  # dimension of attention linear layers
 decoder_dim = 512  # dimension of decoder RNN
 dropout = 0.5
@@ -36,7 +37,7 @@ start_epoch = 0
 epochs = 1
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
-batch_size = 32
+batch_size = 4
 workers = 1  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
@@ -67,7 +68,10 @@ def main():
                                        embed_dim=emb_dim,
                                        decoder_dim=decoder_dim,
                                        vocab_size=len(word_map),
-                                       dropout=dropout)
+                                       token_to_id = word_map,
+                                       dropout=dropout,
+                                       )
+                                       
         decoder_optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, decoder.parameters()),
                                              lr=decoder_lr)
         encoder = Encoder()
@@ -95,18 +99,16 @@ def main():
 
     # Loss function
     criterion = nn.CrossEntropyLoss().to(device)
+    print("entrei aqui")
 
     # Custom dataloaders
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+
     train_loader = torch.utils.data.DataLoader(
-        CaptionDataset(data_folder, data_name, 'TRAIN',
-                       transform=transforms.Compose([normalize])),
-        batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+        CaptionDataset(data_folder, data_name, 'TRAIN'),
+        batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
     val_loader = torch.utils.data.DataLoader(
-        CaptionDataset(data_folder, data_name, 'VAL',
-                       transform=transforms.Compose([normalize])),
-        batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+        CaptionDataset(data_folder, data_name, 'VAL'),
+        batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -174,6 +176,7 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
     # Batches
     for i, (imgs, caps, caplens) in enumerate(train_loader):
+
         data_time.update(time.time() - start)
 
         # Move to GPU, if available
