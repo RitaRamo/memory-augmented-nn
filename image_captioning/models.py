@@ -131,7 +131,7 @@ class DecoderWithAttention(nn.Module):
         self.fc.weight.data.uniform_(-0.1, 0.1)
 
         #init embedding layer
-        fasttext_embeddings = fasttext.load_model('embeddings/fasttext/wiki.en.bin')
+        fasttext_embeddings = fasttext.load_model('embeddings/wiki.en.bin')
         pretrained_embeddings = _get_fasttext_embeddings_matrix(fasttext_embeddings, embed_dim, token_to_id)
         self.embedding.weight.data.copy_(
             torch.from_numpy(pretrained_embeddings))
