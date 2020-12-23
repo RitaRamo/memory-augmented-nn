@@ -60,8 +60,7 @@ def evaluate(beam_size):
     """
     # DataLoader
     loader = torch.utils.data.DataLoader(
-        CaptionDataset(data_folder, data_name, 'TEST',
-                       transform=transforms.Compose([normalize])),
+        CaptionDataset(data_folder, data_name, 'TEST'),
         batch_size=1, shuffle=True, num_workers=1, pin_memory=True)
 
     # TODO: Batched Beam Search
