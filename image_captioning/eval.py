@@ -212,8 +212,6 @@ def evaluate(beam_size):
 
         print("hypotheses", hypotheses_bleu)
 
-        assert len(references) == len(hypotheses)
-
         # hypotheses for coco (needs to be a string)
         hypotheses = " ".join([rev_word_map[w] for w in seq if w not in {
             word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
