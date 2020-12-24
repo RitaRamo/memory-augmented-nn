@@ -5,7 +5,7 @@ from coco_caption.pycocoevalcap.eval import COCOEvalCap
 MODEL = "BASELINE"
 if __name__ == "__main__":
 
-    test_path = "dataset_splitsTEST_COCOTOOLKIT_FORMAT.json"
+    test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMAT.json"
     if MODEL == "BASELINE":
         generated_sentences_path = "baseline.json"
         scores_path = "baseline_coco_results.json"
