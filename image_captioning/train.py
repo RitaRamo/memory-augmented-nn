@@ -34,7 +34,7 @@ cudnn.benchmark = True
 # Training parameters
 start_epoch = 0
 # number of epochs to train for (if early stopping is not triggered)
-epochs = 1
+epochs = 100
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
 batch_size = 4
@@ -98,8 +98,7 @@ def main():
     encoder = encoder.to(device)
 
     # Loss function
-    criterion = nn.CrossEntropyLoss().to(device)
-    print("entrei aqui")
+    criterion = nn.CrossEntropyLoss().to(device)  
 
     # Custom dataloaders
 
@@ -110,13 +109,17 @@ def main():
         CaptionDataset(data_folder, data_name, 'VAL'),
         batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
 
+    # for i, (imgs, caps, caplens) in enumerate(train_loader):
+    #     print("i of batch",i)
+    #     print(stop)
+
     # Epochs
     for epoch in range(start_epoch, epochs):
 
         # Decay learning rate if there is no improvement for 8 consecutive epochs, and terminate training after 20
-        if epochs_since_improvement == 20:
+        if epochs_since_improvement == 12:
             break
-        if epochs_since_improvement > 0 and epochs_since_improvement % 8 == 0:
+        if epochs_since_improvement > 0 and epochs_since_improvement % 5 == 0:
             adjust_learning_rate(decoder_optimizer, 0.8)
             if fine_tune_encoder:
                 adjust_learning_rate(encoder_optimizer, 0.8)
