@@ -140,7 +140,7 @@ class DecoderWithAttention(nn.Module):
         self.embedding.weight.requires_grad = False
 
     
-    def _get_fasttext_embeddings_matrix(embeddings):
+    def _get_fasttext_embeddings_matrix(self,embeddings):
     # reduce the matrix of pretrained:embeddings according to dataset vocab
         print("loading fasttext embeddings")
 
