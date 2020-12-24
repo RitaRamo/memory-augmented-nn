@@ -9,7 +9,7 @@ from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
 
-MODEL_TYPE == "BASELINE"
+MODEL_TYPE = "BASELINE"
 
 if MODEL_TYPE == "BASELINE":
     checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_BASELINE.pth.tar'
