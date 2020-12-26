@@ -37,7 +37,7 @@ start_epoch = 0
 epochs = 100
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
-batch_size = 4
+batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
@@ -109,9 +109,22 @@ def main():
         CaptionDataset(data_folder, data_name, 'VAL'),
         batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
 
-    # for i, (imgs, caps, caplens) in enumerate(train_loader):
+    # TrainRetrievalDataset
+
+    # train_loader = torch.utils.data.TrainRetrievalDataset(
+    #     CaptionDataset(data_folder, data_name, 'TRAIN'),
+    #     batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
+
+    # self.retrieval = ImageRetrieval(decoder.encoder_dim, encoder, data_folder, data_name)
+
+    # diff_train_loader = torch.utils.data.DataLoader(
+    #     NearestCaptionAvgDataset(data_folder, data_name, 'TRAIN', retrieval),
+    #     batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
+    
+    # for i, (imgs, caps, caplens) in enumerate(diff_train_loader):
     #     print("i of batch",i)
-    #     print(stop)
+    #     if i>2:
+    #         print(stop)
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -206,7 +219,7 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
         loss = criterion(scores.data, targets.data)
 
         # Add doubly stochastic attention regularization
-        loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+        #loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
         # Back prop.
         decoder_optimizer.zero_grad()
@@ -300,7 +313,7 @@ def validate(val_loader, encoder, decoder, criterion):
             loss = criterion(scores.data, targets.data)
 
             # Add doubly stochastic attention regularization
-            loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
+            #loss += alpha_c * ((1. - alphas.sum(dim=1)) ** 2).mean()
 
             # Keep track of metrics
             losses.update(loss.item(), sum(decode_lengths))
