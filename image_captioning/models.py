@@ -5,7 +5,7 @@ import fasttext
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+DEBUG=False
 
 class Encoder(nn.Module):
     """
@@ -119,8 +119,8 @@ class DecoderWithAttention(nn.Module):
         self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
         self.init_h = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial hidden state of LSTMCell
         self.init_c = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
-        self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
-        self.sigmoid = nn.Sigmoid()
+        #self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
+        #self.sigmoid = nn.Sigmoid()
         self.fc = nn.Linear(decoder_dim, vocab_size)  # linear layer to find scores over vocabulary
         self.init_weights()  # initialize some layers with the uniform distribution
 
@@ -131,14 +131,18 @@ class DecoderWithAttention(nn.Module):
         self.fc.bias.data.fill_(0)
         self.fc.weight.data.uniform_(-0.1, 0.1)
 
-        #init embedding layer
-        fasttext_embeddings = fasttext.load_model('embeddings/wiki.en.bin')
-        pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings)
-        self.embedding.weight.data.copy_(
-            torch.from_numpy(pretrained_embeddings))
+        if DEBUG:
+            print("WITHOUT FASTEXt-DEBUG")
+        else:
+            print("pretraining fastext")
+            #init embedding layer
+            fasttext_embeddings = fasttext.load_model('embeddings/wiki.en.bin')
+            pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings)
+            self.embedding.weight.data.copy_(
+                torch.from_numpy(pretrained_embeddings))
 
-        # pretrained embedings are not trainable by default
-        self.embedding.weight.requires_grad = False
+            # pretrained embedings are not trainable by default
+            self.embedding.weight.requires_grad = False
 
     
     def _get_fasttext_embeddings_matrix(self,embeddings):
@@ -222,8 +226,8 @@ class DecoderWithAttention(nn.Module):
             batch_size_t = sum([l > t for l in decode_lengths])
             attention_weighted_encoding, alpha = self.attention(encoder_out[:batch_size_t],
                                                                 h[:batch_size_t])
-            gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
-            attention_weighted_encoding = gate * attention_weighted_encoding
+            #gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
+            #attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
                 torch.cat([embeddings[:batch_size_t, t, :], attention_weighted_encoding], dim=1),
                 (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
