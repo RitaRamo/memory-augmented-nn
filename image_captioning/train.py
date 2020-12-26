@@ -49,6 +49,7 @@ fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 MODEL_TYPE = "BASELINE"
 
+print("batch size and epochs", batch_size, epochs)
 
 def main():
     """
