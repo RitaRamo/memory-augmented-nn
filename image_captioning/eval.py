@@ -134,8 +134,8 @@ def evaluate(beam_size):
             awe, _ = decoder.attention(encoder_out, h)
 
             # gating scalar, (s, encoder_dim)
-            gate = decoder.sigmoid(decoder.f_beta(h))
-            awe = gate * awe
+            #gate = decoder.sigmoid(decoder.f_beta(h))
+            #awe = gate * awe
 
             h, c = decoder.decode_step(
                 torch.cat([embeddings, awe], dim=1), (h, c))  # (s, decoder_dim)
@@ -210,8 +210,6 @@ def evaluate(beam_size):
         hypotheses_bleu.append([w for w in seq if w not in {
             word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
 
-        print("hypotheses", hypotheses_bleu)
-
         # hypotheses for coco (needs to be a string)
         hypotheses = " ".join([rev_word_map[w] for w in seq if w not in {
             word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
@@ -223,8 +221,6 @@ def evaluate(beam_size):
                 "caption": hypotheses,
             })
             imgids_so_far.append(img_id.item())
-
-    print("NEW REFS", references)
 
     with open("SAT_discrete.json", 'w+') as f:
         json.dump(list_hipotheses, f, indent=2)
