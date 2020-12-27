@@ -5,7 +5,7 @@ import fasttext
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEBUG=False
+DEBUG=True
 
 class Encoder(nn.Module):
     """
@@ -93,7 +93,7 @@ class DecoderWithAttention(nn.Module):
     Decoder.
     """
 
-    def __init__(self, attention_dim, embed_dim, decoder_dim, vocab_size, token_to_id, encoder_dim=2048, dropout=0.5):
+    def __init__(self, model_type, attention_dim, embed_dim, decoder_dim, vocab_size, token_to_id, lookup_table, encoder_dim=2048, dropout=0.5):
         """
         :param attention_dim: size of attention network
         :param embed_dim: embedding size
@@ -104,6 +104,10 @@ class DecoderWithAttention(nn.Module):
         """
         super(DecoderWithAttention, self).__init__()
 
+        
+        print("Model", model_type)
+
+        self.model_type = model_type
         self.encoder_dim = encoder_dim
         self.attention_dim = attention_dim
         self.embed_dim = embed_dim
@@ -112,17 +116,27 @@ class DecoderWithAttention(nn.Module):
         self.token_to_id = token_to_id
         self.dropout = dropout
 
+        #chamas a attention dependo do modelo...dar erro baseline com attentin nearest
         self.attention = Attention(encoder_dim, decoder_dim, attention_dim)  # attention network
 
         self.embedding = nn.Embedding(vocab_size, embed_dim)  # embedding layer
         self.dropout = nn.Dropout(p=self.dropout)
         self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
         self.init_h = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial hidden state of LSTMCell
-        self.init_c = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
+
+        if model_type== "BASELINE":
+            self.init_c = nn.Linear(encoder_dim, decoder_dim) # linear layer to find initial hidden state of LSTMCell
+        elif model_type == "SAR_avg": #this model uses the avg embedding (dim=embed_dim) of the nearest target caption
+            self.init_c = nn.Linear(embed_dim, decoder_dim) 
+
+        #self.init_c = nn.Linear(embed_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
         #self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
         #self.sigmoid = nn.Sigmoid()
         self.fc = nn.Linear(decoder_dim, vocab_size)  # linear layer to find scores over vocabulary
         self.init_weights()  # initialize some layers with the uniform distribution
+        
+        self.lookup_table= lookup_table #target lookup table of the nearest input examples
+        print("self.lookup_table just to check", self.lookup_table[:10])
 
     def init_weights(self):
         """
@@ -132,7 +146,7 @@ class DecoderWithAttention(nn.Module):
         self.fc.weight.data.uniform_(-0.1, 0.1)
 
         if DEBUG:
-            print("WITHOUT FASTEXt-DEBUG")
+            print("WITHOUT FASTEXT -> DEBUG")
         else:
             print("pretraining fastext")
             #init embedding layer
@@ -170,7 +184,7 @@ class DecoderWithAttention(nn.Module):
         for p in self.embedding.parameters():
             p.requires_grad = fine_tune
 
-    def init_hidden_state(self, encoder_out):
+    def init_hidden_state(self, encoder_out, retrieved_index_of_nearest_imgs):
         """
         Creates the initial hidden and cell states for the decoder's LSTM based on the encoded images.
 
@@ -179,10 +193,30 @@ class DecoderWithAttention(nn.Module):
         """
         mean_encoder_out = encoder_out.mean(dim=1)
         h = self.init_h(mean_encoder_out)  # (batch_size, decoder_dim)
-        c = self.init_c(mean_encoder_out)
+
+        if self.model_type == "BASELINE":
+            c = self.init_c(mean_encoder_out)
+
+        elif self.model_type == "SAR_avg":
+            targets_caps_of_nearest_imgs=self.lookup_table[retrieved_index_of_nearest_imgs*5]
+            print("target caps", targets_caps_of_nearest_imgs)
+            nearest_targets_embeddings = self.embedding(targets_caps_of_nearest_imgs).mean(1)
+            print("embed of near", nearest_targets_embeddings.size())
+            c = self.init_c(nearest_targets_embeddings)
+
+        elif self.model_type == "SAR_norm":
+            targets_caps_of_nearest_imgs=self.lookup_table[retrieved_index_of_nearest_imgs*5]
+            print("target caps", targets_caps_of_nearest_imgs)
+            nearest_targets_embeddings = self.embedding(targets_caps_of_nearest_imgs).mean(1)
+            print("embed of near", nearest_targets_embeddings.size())
+            c = self.init_c(nearest_targets_embeddings)
+
+        else:
+            raise Exception ("no mode model")
+        
         return h, c
 
-    def forward(self, encoder_out, encoded_captions, caption_lengths):
+    def forward(self, encoder_out, retrieved_index_of_nearest_imgs, encoded_captions, caption_lengths):
         """
         Forward propagation.
 
@@ -204,12 +238,13 @@ class DecoderWithAttention(nn.Module):
         caption_lengths, sort_ind = caption_lengths.squeeze(1).sort(dim=0, descending=True)
         encoder_out = encoder_out[sort_ind]
         encoded_captions = encoded_captions[sort_ind]
+        retrieved_index_of_nearest_imgs = retrieved_index_of_nearest_imgs[sort_ind]
 
         # Embedding
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
 
         # Initialize LSTM state
-        h, c = self.init_hidden_state(encoder_out)  # (batch_size, decoder_dim)
+        h, c = self.init_hidden_state(encoder_out, retrieved_index_of_nearest_imgs)  # (batch_size, decoder_dim)
 
         # We won't decode at the <end> position, since we've finished generating as soon as we generate <end>
         # So, decoding lengths are actual lengths - 1
