@@ -11,6 +11,10 @@ from models import Encoder, DecoderWithAttention
 from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
+import numpy as np
+
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 # Data parameters
 
@@ -37,7 +41,7 @@ start_epoch = 0
 epochs = 100
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
-batch_size = 32
+batch_size = 4
 workers = 1  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
@@ -47,7 +51,12 @@ best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
-MODEL_TYPE = "BASELINE"
+MODEL_TYPE = "SAR_avg"
+
+#BASELINE
+#SAR_avg
+#SAR_norm
+#SAR_bert
 
 print("batch size and epochs", batch_size, epochs)
 
@@ -63,13 +72,18 @@ def main():
     with open(word_map_file, 'r') as j:
         word_map = json.load(j)
 
+    with open(os.path.join(data_folder,   'TRAIN'+'_CAPTIONS_' + data_name + '.json'), 'r') as j:
+        retrieval_lookup_table = torch.tensor(json.load(j)).to(device)
+
     # Initialize / load checkpoint
     if checkpoint is None:
-        decoder = DecoderWithAttention(attention_dim=attention_dim,
+        decoder = DecoderWithAttention(model_type=MODEL_TYPE,
+                                       attention_dim=attention_dim,
                                        embed_dim=emb_dim,
                                        decoder_dim=decoder_dim,
                                        vocab_size=len(word_map),
                                        token_to_id = word_map,
+                                       lookup_table=retrieval_lookup_table,
                                        dropout=dropout,
                                        )
                                        
@@ -112,20 +126,46 @@ def main():
 
     # TrainRetrievalDataset
 
-    # train_loader = torch.utils.data.TrainRetrievalDataset(
-    #     CaptionDataset(data_folder, data_name, 'TRAIN'),
-    #     batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
+    train_retrieval_loader = torch.utils.data.DataLoader(
+        TrainRetrievalDataset(data_folder, data_name),
+        batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
 
-    # self.retrieval = ImageRetrieval(decoder.encoder_dim, encoder, data_folder, data_name)
+    image_retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader)
+
+    # print("\nagora vou entrar no my dataset")
 
     # diff_train_loader = torch.utils.data.DataLoader(
-    #     NearestCaptionAvgDataset(data_folder, data_name, 'TRAIN', retrieval),
+    #     NearestCaptionAvgDataset(data_folder, data_name, 'TRAIN'),
     #     batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
     
-    # for i, (imgs, caps, caplens) in enumerate(diff_train_loader):
-    #     print("i of batch",i)
-    #     if i>2:
-    #         print(stop)
+    # with open(os.path.join(data_folder,   'TRAIN'+'_CAPTIONS_' + data_name + '.json'), 'r') as j:
+    #         all_captions = json.load(j)
+
+    # print("all caps", all_captions[:10])
+    # all_captions= torch.tensor(all_captions)
+    # print("converted all caption to tensor", all_captions.size())
+    # print("converted all caption to tensor", all_captions[:10])
+
+
+    # for i, (imgs, caps, caplens, ids_dataloader) in enumerate(diff_train_loader):
+    #     print("\n COMECA AQUI i of batch",i)
+    #     print("IMAGES size", imgs.size())
+    #     print("IMAGES WITH NUMP size", np.shape(imgs.numpy()))
+    #     encoder_output = encoder(imgs)
+    #     encoder_output = encoder_output.view(encoder_output.size()[0], -1, encoder_output.size()[-1])
+    #     print("this was the encod out", encoder_output.size())
+    #     input_imgs = encoder_output.mean(dim=1)
+
+    #     nearest=retrieval.retrieve_nearest_for_train_query(input_imgs.numpy())
+  
+    #     print("my final nearest", nearest)
+    
+    #     print("ids do dataloader", ids_dataloader)
+    #     print("this were caps of input", caps)
+
+    #     print("* 5,",nearest*5 ) #*5 sincete id that comes is the n of image, and to get the given caption we need to multiply by 5 
+    #     print("final target", all_captions[nearest*5])
+    #     print(stop)
 
     # Epochs
     for epoch in range(start_epoch, epochs):
@@ -142,6 +182,7 @@ def main():
         train(train_loader=train_loader,
               encoder=encoder,
               decoder=decoder,
+              retrieval=image_retrieval,
               criterion=criterion,
               encoder_optimizer=encoder_optimizer,
               decoder_optimizer=decoder_optimizer,
@@ -151,6 +192,7 @@ def main():
         recent_bleu4 = validate(val_loader=val_loader,
                                 encoder=encoder,
                                 decoder=decoder,
+                                retrieval=image_retrieval,
                                 criterion=criterion)
 
         # Check if there was an improvement
@@ -168,7 +210,7 @@ def main():
                         decoder_optimizer, recent_bleu4, is_best)
 
 
-def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_optimizer, epoch):
+def train(train_loader, encoder, decoder, retrieval, criterion, encoder_optimizer, decoder_optimizer, epoch):
     """
     Performs one epoch's training.
 
@@ -203,8 +245,13 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
 
         # Forward prop.
         imgs = encoder(imgs)
+        imgs = imgs.view(imgs.size()[0], -1, imgs.size()[-1])
+        print("this was the imgs out", imgs.size())
+        input_imgs = imgs.mean(dim=1)
+        nearest_imgs = retrieval.retrieve_nearest_for_train_query(input_imgs.numpy())
+
         scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(
-            imgs, caps, caplens)
+            imgs, nearest_imgs, caps, caplens)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
         targets = caps_sorted[:, 1:]
@@ -257,9 +304,9 @@ def train(train_loader, encoder, decoder, criterion, encoder_optimizer, decoder_
                                                                           batch_time=batch_time,
                                                                           data_time=data_time, loss=losses,
                                                                           top5=top5accs))
+        print(stop)
 
-
-def validate(val_loader, encoder, decoder, criterion):
+def validate(val_loader, encoder, decoder, retrieval, criterion):
     """
     Performs one epoch's validation.
 
@@ -270,8 +317,7 @@ def validate(val_loader, encoder, decoder, criterion):
     :return: BLEU-4 score
     """
     decoder.eval()  # eval mode (no dropout or batchnorm)
-    if encoder is not None:
-        encoder.eval()
+    encoder.eval()
 
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -294,10 +340,13 @@ def validate(val_loader, encoder, decoder, criterion):
             caplens = caplens.to(device)
 
             # Forward prop.
-            if encoder is not None:
-                imgs = encoder(imgs)
+            imgs = encoder(imgs)
+            imgs = imgs.view(imgs.size()[0], -1, imgs.size()[-1])
+            input_imgs = imgs.mean(dim=1)
+            nearest_imgs=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.numpy())
+
             scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(
-                imgs, caps, caplens)
+                imgs, nearest_imgs, caps, caplens)
 
             # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
             targets = caps_sorted[:, 1:]
