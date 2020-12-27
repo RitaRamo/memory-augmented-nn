@@ -51,8 +51,9 @@ best_bleu4 = 0.  # BLEU-4 score right now
 print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
-MODEL_TYPE = "SAR_avg"
 
+MULTILEVEL_ATTENTION = True
+MODEL_TYPE = "SAR_avg"
 #BASELINE
 #SAR_avg
 #SAR_norm
@@ -78,6 +79,7 @@ def main():
     # Initialize / load checkpoint
     if checkpoint is None:
         decoder = DecoderWithAttention(model_type=MODEL_TYPE,
+                                       multi_attention = MULTILEVEL_ATTENTION,
                                        attention_dim=attention_dim,
                                        embed_dim=emb_dim,
                                        decoder_dim=decoder_dim,
@@ -250,7 +252,7 @@ def train(train_loader, encoder, decoder, retrieval, criterion, encoder_optimize
         input_imgs = imgs.mean(dim=1)
         nearest_imgs = retrieval.retrieve_nearest_for_train_query(input_imgs.numpy())
 
-        scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(
+        scores, caps_sorted, decode_lengths, sort_ind = decoder(
             imgs, nearest_imgs, caps, caplens)
 
         # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>
@@ -345,7 +347,7 @@ def validate(val_loader, encoder, decoder, retrieval, criterion):
             input_imgs = imgs.mean(dim=1)
             nearest_imgs=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.numpy())
 
-            scores, caps_sorted, decode_lengths, alphas, sort_ind = decoder(
+            scores, caps_sorted, decode_lengths, sort_ind = decoder(
                 imgs, nearest_imgs, caps, caplens)
 
             # Since we decoded starting with <start>, the targets are all words after <start>, up to <end>

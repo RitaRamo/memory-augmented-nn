@@ -71,7 +71,13 @@ class Attention(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-    def forward(self, encoder_out, decoder_hidden):
+    def prepare_encoder_out(self, encoder_out):
+        # In pratice uncessary: we just use this function to be according to the multi-level attention 
+        # In this way, the forward code of both attentions works either
+        # we are using the baseline model with this attention or a the SAR model with the other attention
+        return encoder_out
+
+    def forward(self, encoder_out, decoder_hidden, additional = None): #additional arg because of multi-level attention
         """
         Forward propagation.
 
@@ -88,39 +94,75 @@ class Attention(nn.Module):
         return attention_weighted_encoding, alpha
 
 
-# class RetrievedAttention(nn.Module):
-#     """
-#     Attention Network.
-#     """
+class MultiLevelAttention(nn.Module):
+    """
+    Attention Network.
+    """
 
-#     def __init__(self, encoder_dim, decoder_dim, attention_dim):
-#         """
-#         :param encoder_dim: feature size of encoded images
-#         :param decoder_dim: size of decoder's RNN
-#         :param attention_dim: size of the attention network
-#         """
-#         super(Attention, self).__init__()
-#         self.encoder_att = nn.Linear(encoder_dim, attention_dim)  # linear layer to transform encoded image
-#         self.decoder_att = nn.Linear(decoder_dim, attention_dim)  # linear layer to transform decoder's output
-#         self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
-#         self.tanh = nn.Tanh()
-#         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
+    def __init__(self, encoder_dim, decoder_dim, attention_dim, retrieved_dim):
+        """
+        :param encoder_dim: feature size of encoded images
+        :param decoder_dim: size of decoder's RNN
+        :param attention_dim: size of the attention network
+        """
+        super(MultiLevelAttention, self).__init__()
+        self.linear_retrieval = nn.Linear(encoder_dim, retrieved_dim)
 
-#     def forward(self, encoder_out, decoder_hidden):
-#         """
-#         Forward propagation.
+        self.encoder_att = nn.Linear(retrieved_dim, attention_dim)  # linear layer to transform encoded image
+        self.decoder_att = nn.Linear(decoder_dim, attention_dim)  # linear layer to transform decoder's output
+        self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+        
+        self.cat_att = nn.Linear(retrieved_dim, attention_dim)  # linear layer to calculate values to be softmax-ed
+        self.full_multiatt = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
 
-#         :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
-#         :param decoder_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
-#         :return: attention weighted encoding, weights
-#         """
-#         att1 = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
-#         att2 = self.decoder_att(decoder_hidden)  # (batch_size, attention_dim)
-#         att = self.full_att(self.tanh(att1 + att2.unsqueeze(1))).squeeze(2)  # (batch_size, num_pixels)
-#         alpha = self.softmax(att)  # (batch_size, num_pixels)
-#         attention_weighted_encoding = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-#         return attention_weighted_encoding, alpha
+    def prepare_encoder_out(self,encoder_out):
+        #the image features receive an affine transformation for this attention, before passing through Eq. 4,
+        # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
+        return self.linear_retrieval(encoder_out)  # (batch_size, image_size*image_size, decoder_dim)
+
+
+    def forward(self, encoder_out, decoder_hidden, retrieved_target):
+        """
+        Forward propagation.
+
+        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        :param decoder_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
+        :return: attention weighted encoding, weights
+        """
+        att_v = self.encoder_att(encoder_out)  # (batch_size, num_pixels, attention_dim)
+        att_h = self.decoder_att(decoder_hidden).unsqueeze(1)  # (batch_size, attention_dim)
+        att = self.full_att(self.tanh(att_v + att_h)).squeeze(2)  # Eq.4 (batch_size, num_pixels) 
+        alpha = self.softmax(att)  # (batch_size, num_pixels)
+        visual_context = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
+
+        print("self encoder out", encoder_out.size())
+        print("visual context dim", visual_context.size())
+        print("retrieved_target", retrieved_target.size())
+        visual_and_retrieved = torch.cat(([visual_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
+        att_vr= self.cat_att(visual_and_retrieved) #visual with retrieved target
+        print("wahst is the concatenarion att_vr", att_vr.size())
+
+
+        #TODO: FALTA POR A TRANSFORMAÇÃO LINEAR!!
+        att_hat = self.full_multiatt(self.tanh(att_vr + att_h)).squeeze(2)  # (batch_size, num_pixels)
+        print("att_hat", att_hat.size())
+        alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
+        print("alpha_hat", alpha_hat.size())
+        print("alpha_hat", alpha_hat)
+
+        print("alpha_hat [0]", alpha_hat[0])
+        print("alpha_hat [:,0]", alpha_hat[:,0])
+        print("visual_and_retrieved", visual_and_retrieved)
+
+        #multilevel_context=visual_context*alpha_hat[:,0] + retrieved*alpha_hat[:,1].sum(dim=1) #Eq. 9 
+        #print("multilevel_cont", multilevel_context)
+        multilevel_context=(visual_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
+        print("alter multilevel_cont", multilevel_context)
+
+        return multilevel_context, alpha_hat
 
 
 class DecoderWithAttention(nn.Module):
@@ -128,7 +170,7 @@ class DecoderWithAttention(nn.Module):
     Decoder.
     """
 
-    def __init__(self, model_type, attention_dim, embed_dim, decoder_dim, vocab_size, token_to_id, lookup_table, encoder_dim=2048, dropout=0.5):
+    def __init__(self, model_type, multi_attention, attention_dim, embed_dim, decoder_dim, vocab_size, token_to_id, lookup_table, encoder_dim=2048, dropout=0.5):
         """
         :param attention_dim: size of attention network
         :param embed_dim: embedding size
@@ -152,11 +194,21 @@ class DecoderWithAttention(nn.Module):
         self.dropout = dropout
 
         #chamas a attention dependo do modelo...dar erro baseline com attentin nearest
-        self.attention = Attention(encoder_dim, decoder_dim, attention_dim)  # attention network
+        if multi_attention:
+            print("using our multi attention")
+            if model_type == "SAR_avg":
+                retrieved_dim= self.embed_dim # retrieved target correspond to avg word embeddings from caption
+
+            self.attention = MultiLevelAttention(encoder_dim, decoder_dim, attention_dim, retrieved_dim)  # proposed attention network
+            self.decode_step = nn.LSTMCell(embed_dim + retrieved_dim, decoder_dim, bias=True)  # decoding LSTMCell
+
+        else: #baseline attention
+            print("default attention")
+            self.attention = Attention(encoder_dim, decoder_dim, attention_dim)  # attention network
+            self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
 
         self.embedding = nn.Embedding(vocab_size, embed_dim)  # embedding layer
         self.dropout = nn.Dropout(p=self.dropout)
-        self.decode_step = nn.LSTMCell(embed_dim + encoder_dim, decoder_dim, bias=True)  # decoding LSTMCell
         self.init_h = nn.Linear(encoder_dim, decoder_dim)  # linear layer to find initial hidden state of LSTMCell
 
         if model_type== "BASELINE":
@@ -231,6 +283,8 @@ class DecoderWithAttention(nn.Module):
 
         if self.model_type == "BASELINE":
             c = self.init_c(mean_encoder_out)
+            target_neighbors_representation= c # the baseline does not have retrieved target
+            #it is just for code coherence in respect to SAR Model that needs that extra output
 
         elif self.model_type == "SAR_avg":
             target_neighbors=self.target_lookup[retrieved_neighbors_index*5]
@@ -243,7 +297,7 @@ class DecoderWithAttention(nn.Module):
         else:
             raise Exception ("no mode model")
         
-        return h, c
+        return h, c, target_neighbors_representation
 
     def forward(self, encoder_out, retrieved_neighbors_index, encoded_captions, caption_lengths):
         """
@@ -274,7 +328,13 @@ class DecoderWithAttention(nn.Module):
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
 
         # Initialize LSTM state
-        h, c = self.init_hidden_state(encoder_out, retrieved_neighbors_index)  # (batch_size, decoder_dim)
+        h, c,retrieved_target = self.init_hidden_state(encoder_out, retrieved_neighbors_index)  # (batch_size, decoder_dim)
+        
+        #the image features receive an affine transformation for the multi-leval attention
+        print("encoder out before", encoder_out.size())
+        encoder_out= self.attention.prepare_encoder_out(encoder_out) 
+        print("encoder out after", encoder_out.size())
+
 
         # We won't decode at the <end> position, since we've finished generating as soon as we generate <end>
         # So, decoding lengths are actual lengths - 1
@@ -282,7 +342,7 @@ class DecoderWithAttention(nn.Module):
 
         # Create tensors to hold word predicion scores and alphas
         predictions = torch.zeros(batch_size, max(decode_lengths), vocab_size).to(device)
-        alphas = torch.zeros(batch_size, max(decode_lengths), num_pixels).to(device)
+        #alphas = torch.zeros(batch_size, max(decode_lengths), num_pixels).to(device)
 
         # At each time-step, decode by
         # attention-weighing the encoder's output based on the decoder's previous hidden state output
@@ -290,7 +350,9 @@ class DecoderWithAttention(nn.Module):
         for t in range(max(decode_lengths)):
             batch_size_t = sum([l > t for l in decode_lengths])
             attention_weighted_encoding, alpha = self.attention(encoder_out[:batch_size_t],
-                                                                h[:batch_size_t])
+                                                                h[:batch_size_t],
+                                                                retrieved_target[:batch_size_t]
+                                                                )
             #gate = self.sigmoid(self.f_beta(h[:batch_size_t]))  # gating scalar, (batch_size_t, encoder_dim)
             #attention_weighted_encoding = gate * attention_weighted_encoding
             h, c = self.decode_step(
@@ -298,6 +360,6 @@ class DecoderWithAttention(nn.Module):
                 (h[:batch_size_t], c[:batch_size_t]))  # (batch_size_t, decoder_dim)
             preds = self.fc(self.dropout(h))  # (batch_size_t, vocab_size)
             predictions[:batch_size_t, t, :] = preds
-            alphas[:batch_size_t, t, :] = alpha
+            #alphas[:batch_size_t, t, :] = alpha
 
-        return predictions, encoded_captions, decode_lengths, alphas, sort_ind
+        return predictions, encoded_captions, decode_lengths, sort_ind
