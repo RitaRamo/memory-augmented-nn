@@ -64,10 +64,10 @@ class ImageRetrieval():
         self.encoder= encoder
 
         #data
+        self.device=device
         self.imgs_indexes_of_dataloader = torch.tensor([], dtype=torch.int32)
         #print("len img dataloader", self.imgs_indexes_of_dataloader.size())
         self._add_examples(train_dataloader_images)
-        self.device=device
         #print("len img dataloader final", self.imgs_indexes_of_dataloader.size())
         #print("como ficou img dataloader final", self.imgs_indexes_of_dataloader)
 
