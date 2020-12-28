@@ -5,7 +5,7 @@ import fasttext
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEBUG=True
+DEBUG=False
 
 class Encoder(nn.Module):
     """
@@ -138,29 +138,29 @@ class MultiLevelAttention(nn.Module):
         alpha = self.softmax(att)  # (batch_size, num_pixels)
         visual_context = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
 
-        print("self encoder out", encoder_out.size())
-        print("visual context dim", visual_context.size())
-        print("retrieved_target", retrieved_target.size())
+        #print("self encoder out", encoder_out.size())
+        #print("visual context dim", visual_context.size())
+        #print("retrieved_target", retrieved_target.size())
         visual_and_retrieved = torch.cat(([visual_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
         att_vr= self.cat_att(visual_and_retrieved) #visual with retrieved target
-        print("wahst is the concatenarion att_vr", att_vr.size())
+        #print("wahst is the concatenarion att_vr", att_vr.size())
 
 
         #TODO: FALTA POR A TRANSFORMAÇÃO LINEAR!!
         att_hat = self.full_multiatt(self.tanh(att_vr + att_h)).squeeze(2)  # (batch_size, num_pixels)
-        print("att_hat", att_hat.size())
+        #print("att_hat", att_hat.size())
         alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
-        print("alpha_hat", alpha_hat.size())
-        print("alpha_hat", alpha_hat)
+        # print("alpha_hat", alpha_hat.size())
+        # print("alpha_hat", alpha_hat)
 
-        print("alpha_hat [0]", alpha_hat[0])
-        print("alpha_hat [:,0]", alpha_hat[:,0])
-        print("visual_and_retrieved", visual_and_retrieved)
+        # print("alpha_hat [0]", alpha_hat[0])
+        # print("alpha_hat [:,0]", alpha_hat[:,0])
+        # print("visual_and_retrieved", visual_and_retrieved)
 
         #multilevel_context=visual_context*alpha_hat[:,0] + retrieved*alpha_hat[:,1].sum(dim=1) #Eq. 9 
         #print("multilevel_cont", multilevel_context)
         multilevel_context=(visual_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
-        print("alter multilevel_cont", multilevel_context)
+        #print("alter multilevel_cont", multilevel_context)
 
         return multilevel_context, alpha_hat
 
@@ -223,7 +223,7 @@ class DecoderWithAttention(nn.Module):
         self.init_weights()  # initialize some layers with the uniform distribution
         
         self.target_lookup= lookup_table #target lookup table of the nearest input examples
-        print("self.lookup_table just to check", self.target_lookup[:10])
+        #print("self.lookup_table just to check", self.target_lookup[:10])
 
     def init_weights(self):
         """
@@ -290,8 +290,8 @@ class DecoderWithAttention(nn.Module):
             target_neighbors=self.target_lookup[retrieved_neighbors_index*5]
             target_neighbors_representation = self.embedding(target_neighbors).mean(1)
             
-            print("target caps", target_neighbors)
-            print("embed of near", target_neighbors_representation.size())
+            # print("target caps", target_neighbors)
+            # print("embed of near", target_neighbors_representation.size())
             c = self.init_c(target_neighbors_representation)
 
         else:
@@ -323,7 +323,11 @@ class DecoderWithAttention(nn.Module):
         encoder_out = encoder_out[sort_ind]
         encoded_captions = encoded_captions[sort_ind]
         retrieved_neighbors_index = retrieved_neighbors_index[sort_ind]
-
+        # print("sort_ind index", sort_ind)
+        # print("retrieved_neighbors_index",retrieved_neighbors_index)
+        # print("original caps", encoded_captions)
+        # print("sort_ind index", sort_ind)
+        # print("retrieved_neighbors_index",retrieved_neighbors_index)
         # Embedding
         embeddings = self.embedding(encoded_captions)  # (batch_size, max_caption_length, embed_dim)
 
@@ -331,9 +335,9 @@ class DecoderWithAttention(nn.Module):
         h, c,retrieved_target = self.init_hidden_state(encoder_out, retrieved_neighbors_index)  # (batch_size, decoder_dim)
         
         #the image features receive an affine transformation for the multi-leval attention
-        print("encoder out before", encoder_out.size())
+        #print("encoder out before", encoder_out.size())
         encoder_out= self.attention.prepare_encoder_out(encoder_out) 
-        print("encoder out after", encoder_out.size())
+        #print("encoder out after", encoder_out.size())
 
 
         # We won't decode at the <end> position, since we've finished generating as soon as we generate <end>

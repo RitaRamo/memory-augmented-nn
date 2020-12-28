@@ -26,9 +26,9 @@ class TrainRetrievalDataset(Dataset):
         with open(os.path.join(data_folder, "TRAIN" + '_IMGPATHS_' + data_name + '.json'), 'r') as j:
             self.imgpaths = json.load(j)
 
-        self.imgpaths=self.imgpaths[:10]
-        print("self images", self.imgpaths)
-        #TODO:REMOVE
+        #self.imgpaths=self.imgpaths[:10]
+        #print("self images", self.imgpaths)
+        ##TODO:REMOVE
 
         # Total number of datapoints
         self.dataset_size = len(self.imgpaths)
@@ -59,24 +59,16 @@ class TrainRetrievalDataset(Dataset):
 class ImageRetrieval():
 
     def __init__(self, dim_examples, encoder, train_dataloader_images):
-        print("self dim exam", dim_examples)
+        #print("self dim exam", dim_examples)
         self.datastore = faiss.IndexFlatL2(dim_examples) #datastore
         self.encoder= encoder
-
-        self.transform = transforms.Compose([
-                    transforms.Resize(256),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406],  # mean=IMAGENET_IMAGES_MEAN, std=IMAGENET_IMAGES_STD
-                                        std=[0.229, 0.224, 0.225])
-        ])
 
         #data
         self.imgs_indexes_of_dataloader = torch.tensor([], dtype=torch.int32)
         #print("len img dataloader", self.imgs_indexes_of_dataloader.size())
         self._add_examples(train_dataloader_images)
         #print("len img dataloader final", self.imgs_indexes_of_dataloader.size())
-        print("como ficou img dataloader final", self.imgs_indexes_of_dataloader)
+        #print("como ficou img dataloader final", self.imgs_indexes_of_dataloader)
 
 
     def _add_examples(self, train_dataloader_images):
@@ -98,13 +90,13 @@ class ImageRetrieval():
 
 
     def retrieve_nearest_for_train_query(self, query_img, k=2):
-        print("self query img", query_img)
+        #print("self query img", query_img)
         D, I = self.datastore.search(query_img, k)     # actual search
-        print("all nearest", I)
-        print("I firt", I[:,0])
-        print("if you choose the first", self.imgs_indexes_of_dataloader[I[:,0]])
+        #print("all nearest", I)
+        #print("I firt", I[:,0])
+        #print("if you choose the first", self.imgs_indexes_of_dataloader[I[:,0]])
         nearest_input = self.imgs_indexes_of_dataloader[I[:,1]]
-        print("the nearest input is actual the second for training", nearest_input)
+        #print("the nearest input is actual the second for training", nearest_input)
         #nearest_input = I[0,1]
         #print("actual nearest_input", nearest_input)
         return nearest_input
@@ -112,9 +104,9 @@ class ImageRetrieval():
     def retrieve_nearest_for_val_or_test_query(self, query_img, k=1):
         D, I = self.datastore.search(query_img, k)     # actual search
         nearest_input = self.imgs_indexes_of_dataloader[I[:,0]]
-        print("all nearest", I)
-        print("the nearest input", nearest_input)
-        return I
+        #print("all nearest", I)
+        #print("the nearest input", nearest_input)
+        return nearest_input
 
 
 class NearestCaptionAvgDataset(Dataset):
@@ -244,7 +236,7 @@ class CaptionDataset(Dataset):
 
     def __getitem__(self, i):
         # Remember, the Nth caption corresponds to the (N // captions_per_image)th image
-        print("index of dataset", i)
+        #print("path image; index of dataset; img id", self.imgpaths[i // self.cpi], i, i // self.cpi)
         
         img = Image.open(self.data_folder+"/"+self.imgpaths[i // self.cpi])
 

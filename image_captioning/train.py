@@ -306,7 +306,7 @@ def train(train_loader, encoder, decoder, retrieval, criterion, encoder_optimize
                                                                           batch_time=batch_time,
                                                                           data_time=data_time, loss=losses,
                                                                           top5=top5accs))
-        print(stop)
+        #break
 
 def validate(val_loader, encoder, decoder, retrieval, criterion):
     """
@@ -406,6 +406,8 @@ def validate(val_loader, encoder, decoder, retrieval, criterion):
             hypotheses.extend(preds)
 
             assert len(references) == len(hypotheses)
+
+            #print(stop)
 
         # Calculate BLEU-4 scores
         bleu4 = corpus_bleu(references, hypotheses)
