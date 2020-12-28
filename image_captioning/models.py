@@ -191,16 +191,16 @@ class DecoderWithAttention(nn.Module):
         self.token_to_id = token_to_id
         self.dropout = dropout
 
+        if model_type == "SAR_avg":
+            retrieved_dim= self.embed_dim # retrieved target correspond to avg word embeddings from caption
+        elif model_type == "SAR_norm":
+            retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
+        elif model_type == "SAR_bert":
+            retrieved_dim= 768 # retrieved target correspond to bert embeddings size
+
         #chamas a attention dependo do modelo...dar erro baseline com attentin nearest
         if multi_attention:
             print("using our multi attention")
-            if model_type == "SAR_avg":
-                retrieved_dim= self.embed_dim # retrieved target correspond to avg word embeddings from caption
-            elif model_type == "SAR_norm":
-                retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
-            elif model_type == "SAR_bert":
-                retrieved_dim= 768 # retrieved target correspond to bert embeddings size
-
             self.attention = MultiLevelAttention(encoder_dim, decoder_dim, attention_dim, retrieved_dim)  # proposed attention network
             self.decode_step = nn.LSTMCell(embed_dim + retrieved_dim, decoder_dim, bias=True)  # decoding LSTMCell
 
@@ -314,8 +314,6 @@ class DecoderWithAttention(nn.Module):
             #this lookup only contains firt caption (hence no need to multiply *5)
             #the lookup already gives the target representation (for efficency we compute bert before)
             target_neighbors_representation=self.target_lookup[retrieved_neighbors_index] 
-            #target_neighbors_representation = self.embedding(target_neighbors).mean(1)
-            # print("target caps", target_neighbors)
             # print("embed of near", target_neighbors_representation.size())
             c = self.init_c(target_neighbors_representation)
 
