@@ -15,7 +15,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+#os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Data parameters
 
