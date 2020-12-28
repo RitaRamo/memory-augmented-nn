@@ -132,7 +132,7 @@ def main():
         TrainRetrievalDataset(data_folder, data_name),
         batch_size=batch_size, shuffle=True, num_workers=workers)#, pin_memory=True)
 
-    image_retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader)
+    image_retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader, device)
 
     # print("\nagora vou entrar no my dataset")
 

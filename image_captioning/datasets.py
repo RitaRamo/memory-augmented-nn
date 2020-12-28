@@ -58,7 +58,7 @@ class TrainRetrievalDataset(Dataset):
 
 class ImageRetrieval():
 
-    def __init__(self, dim_examples, encoder, train_dataloader_images):
+    def __init__(self, dim_examples, encoder, train_dataloader_images, device):
         #print("self dim exam", dim_examples)
         self.datastore = faiss.IndexFlatL2(dim_examples) #datastore
         self.encoder= encoder
@@ -67,6 +67,7 @@ class ImageRetrieval():
         self.imgs_indexes_of_dataloader = torch.tensor([], dtype=torch.int32)
         #print("len img dataloader", self.imgs_indexes_of_dataloader.size())
         self._add_examples(train_dataloader_images)
+        self.device=device
         #print("len img dataloader final", self.imgs_indexes_of_dataloader.size())
         #print("como ficou img dataloader final", self.imgs_indexes_of_dataloader)
 
@@ -75,6 +76,8 @@ class ImageRetrieval():
         print("\nadding input examples to datastore (retrieval)")
         for i, (imgs, imgs_indexes) in enumerate(train_dataloader_images):
             #add to the datastore
+            imgs=imgs.to(self.device)
+            imgs_indexes = imgs_indexes.to(self.device)
             encoder_output = self.encoder(imgs)
 
             encoder_output = encoder_output.view(encoder_output.size()[0], -1, encoder_output.size()[-1])
