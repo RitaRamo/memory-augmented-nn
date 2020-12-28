@@ -287,8 +287,8 @@ class DecoderWithAttention(nn.Module):
             #it is just for code coherence in respect to SAR Model that needs that extra output
 
         elif self.model_type == "SAR_avg":
-            print("self target look", self.target_lookup)
-            print("retrieved_neighbors_index",retrieved_neighbors_index)
+            #print("self target look", self.target_lookup)
+            #print("retrieved_neighbors_index",retrieved_neighbors_index)
             target_neighbors=self.target_lookup[retrieved_neighbors_index*5]
             target_neighbors_representation = self.embedding(target_neighbors).mean(1)
             
