@@ -5,7 +5,7 @@ import fasttext
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEBUG=False
+DEBUG=True
 
 class Encoder(nn.Module):
     """
@@ -198,6 +198,8 @@ class DecoderWithAttention(nn.Module):
                 retrieved_dim= self.embed_dim # retrieved target correspond to avg word embeddings from caption
             elif model_type == "SAR_norm":
                 retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
+            elif model_type == "SAR_bert":
+                retrieved_dim= 768 # retrieved target correspond to bert embeddings size
 
             self.attention = MultiLevelAttention(encoder_dim, decoder_dim, attention_dim, retrieved_dim)  # proposed attention network
             self.decode_step = nn.LSTMCell(embed_dim + retrieved_dim, decoder_dim, bias=True)  # decoding LSTMCell
@@ -213,10 +215,8 @@ class DecoderWithAttention(nn.Module):
 
         if model_type== "BASELINE":
             self.init_c = nn.Linear(encoder_dim, decoder_dim) # linear layer to find initial hidden state of LSTMCell
-        elif model_type == "SAR_avg": #this model uses the avg embedding (dim=embed_dim) of the nearest target caption
-            self.init_c = nn.Linear(embed_dim, decoder_dim) 
-        elif model_type == "SAR_norm": #this model uses the weighted avg embedding (dim=embed_dim) of the nearest target caption
-            self.init_c = nn.Linear(embed_dim, decoder_dim) 
+        else:
+            self.init_c = nn.Linear(retrieved_dim, decoder_dim) 
 
         #self.init_c = nn.Linear(embed_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
         #self.f_beta = nn.Linear(decoder_dim, encoder_dim)  # linear layer to create a sigmoid-activated gate
@@ -310,17 +310,14 @@ class DecoderWithAttention(nn.Module):
             
             c = self.init_c(target_neighbors_representation)
 
-        # elif self.model_type == "SAR_bert":
-        #     #print("self target look", self.target_lookup)
-        #     #print("retrieved_neighbors_index",retrieved_neighbors_index)
-        #     target_neighbors=self.target_lookup[retrieved_neighbors_index*5] # each image has 5 captions
-        #     # [1,2,3,5]-> ["ola", "as", "asas"]
-        #     # 
-        #     target_neighbors_representation = bert(target_neighbors)
-        #     #target_neighbors_representation = self.embedding(target_neighbors).mean(1)
-        #     # print("target caps", target_neighbors)
-        #     # print("embed of near", target_neighbors_representation.size())
-        #     c = self.init_c(target_neighbors_representation)
+        elif self.model_type == "SAR_bert":
+            #this lookup only contains firt caption (hence no need to multiply *5)
+            #the lookup already gives the target representation (for efficency we compute bert before)
+            target_neighbors_representation=self.target_lookup[retrieved_neighbors_index] 
+            #target_neighbors_representation = self.embedding(target_neighbors).mean(1)
+            # print("target caps", target_neighbors)
+            # print("embed of near", target_neighbors_representation.size())
+            c = self.init_c(target_neighbors_representation)
 
         else:
             raise Exception ("no mode model")
