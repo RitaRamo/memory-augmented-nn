@@ -76,14 +76,14 @@ class ImageRetrieval():
         print("\nadding input examples to datastore (retrieval)")
         for i, (imgs, imgs_indexes) in enumerate(train_dataloader_images):
             #add to the datastore
-            #imgs=imgs.to(self.device)
-            #imgs_indexes = imgs_indexes.to(self.device)
+            imgs=imgs.to(self.device)
+            imgs_indexes = imgs_indexes.to(self.device)
             encoder_output = self.encoder(imgs)
 
             encoder_output = encoder_output.view(encoder_output.size()[0], -1, encoder_output.size()[-1])
             input_img = encoder_output.mean(dim=1)
             
-            self.datastore.add(input_img.numpy())
+            self.datastore.add(input_img.cpu()numpy())
 
             if i%5==0:
                 print("i and img index of ImageRetrival",i, imgs_indexes)
