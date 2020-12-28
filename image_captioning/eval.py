@@ -8,15 +8,22 @@ from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import torch.nn.functional as F
 from tqdm import tqdm
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "BASELINE"
+MODEL_TYPE = "SAR_avg"
+#BASELINE
+#SAR_avg
+#SAR_norm
+#SAR_bert
 
-if MODEL_TYPE == "BASELINE":
-    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_BASELINE.pth.tar'
-elif MODEL_TYPE == "NEAREST":
-    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_NEAREST.pth.tar'
-elif MODEL_TYPE == "ATTENTION_NEAREST":
-    checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_ATTENTION_NEAREST.pth.tar'
+#if MODEL_TYPE == "BASELINE":
+checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
+# elif MODEL_TYPE == "SAR_avg":
+#     checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_SAR_avg.pth.tar'
+# elif MODEL_TYPE == "SAR_norm":
+#     checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_SAR_norm.pth.tar'
+
 # Parameters
 # folder with data files saved by create_input_files.py
 data_folder = 'dataset_splits'
@@ -58,6 +65,13 @@ def evaluate(beam_size):
     :param beam_size: beam size at which to generate captions for evaluation
     :return: BLEU-4 score
     """
+
+    train_retrieval_loader = torch.utils.data.DataLoader(TrainRetrievalDataset(data_folder, data_name),
+    batch_size=32, shuffle=True, num_workers=1)#, pin_memory=True)
+
+    retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader, device)
+
+
     # DataLoader
     loader = torch.utils.data.DataLoader(
         CaptionDataset(data_folder, data_name, 'TEST'),
@@ -102,9 +116,18 @@ def evaluate(beam_size):
         encoder_out = encoder_out.view(1, -1, encoder_dim)
         num_pixels = encoder_out.size(1)
 
+        input_imgs = encoder_out.mean(dim=1)
+        retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
+        #print("encoder_out", encoder_out.size())
+        #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
         # We'll treat the problem as having a batch size of k
         # (k, num_pixels, encoder_dim)
         encoder_out = encoder_out.expand(k, num_pixels, encoder_dim)
+        retrieved_neighbors_index = retrieved_neighbors_index.expand(k)
+        # print("encoder_out  after", encoder_out.size())
+
+        # print("retireived neigh index after", retrieved_neighbors_index.size())
+        # print("retireived neigh index after", retrieved_neighbors_index)
 
         # Tensor to store top k previous words at each step; now they're just <start>
         k_prev_words = torch.LongTensor(
@@ -122,7 +145,10 @@ def evaluate(beam_size):
 
         # Start decoding
         step = 1
-        h, c = decoder.init_hidden_state(encoder_out)
+        h, c, retrieved_target = decoder.init_hidden_state(encoder_out, retrieved_neighbors_index)
+
+        encoder_out= decoder.attention.prepare_encoder_out(encoder_out) 
+
 
         # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
         while True:
@@ -131,7 +157,7 @@ def evaluate(beam_size):
                 k_prev_words).squeeze(1)  # (s, embed_dim)
 
             # (s, encoder_dim), (s, num_pixels)
-            awe, _ = decoder.attention(encoder_out, h)
+            awe, _ = decoder.attention(encoder_out, h, retrieved_target)
 
             # gating scalar, (s, encoder_dim)
             #gate = decoder.sigmoid(decoder.f_beta(h))
@@ -228,11 +254,14 @@ def evaluate(beam_size):
     if MODEL_TYPE == "BASELINE":
         with open("baseline.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
-    elif MODEL_TYPE == "NEAREST":
-        with open("nearest.json", 'w+') as f:
+    elif MODEL_TYPE == "SAR_avg":
+        with open("SAR_avg.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
-    elif MODEL_TYPE == "ATTENTION_NEAREST":
-        with open("SATN.json", 'w+') as f:
+    elif MODEL_TYPE == "SAR_norm":
+        with open("SAR_norm.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "SAR_bert":
+        with open("SAR_bert.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     else:
         raise Exception("unknow model")
