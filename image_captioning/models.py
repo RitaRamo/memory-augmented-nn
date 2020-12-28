@@ -138,18 +138,17 @@ class MultiLevelAttention(nn.Module):
         alpha = self.softmax(att)  # (batch_size, num_pixels)
         visual_context = (encoder_out * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
 
+        visual_and_retrieved = torch.cat(([visual_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
+        att_vr= self.cat_att(visual_and_retrieved) #visual with retrieved target
+        att_hat = self.full_multiatt(self.tanh(att_vr + att_h)).squeeze(2)  # (batch_size, num_pixels)
+        alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
+        multilevel_context=(visual_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
+
         #print("self encoder out", encoder_out.size())
         #print("visual context dim", visual_context.size())
         #print("retrieved_target", retrieved_target.size())
-        visual_and_retrieved = torch.cat(([visual_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
-        att_vr= self.cat_att(visual_and_retrieved) #visual with retrieved target
         #print("wahst is the concatenarion att_vr", att_vr.size())
-
-
-        #TODO: FALTA POR A TRANSFORMAÇÃO LINEAR!!
-        att_hat = self.full_multiatt(self.tanh(att_vr + att_h)).squeeze(2)  # (batch_size, num_pixels)
         #print("att_hat", att_hat.size())
-        alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
         # print("alpha_hat", alpha_hat.size())
         # print("alpha_hat", alpha_hat)
 
@@ -159,7 +158,6 @@ class MultiLevelAttention(nn.Module):
 
         #multilevel_context=visual_context*alpha_hat[:,0] + retrieved*alpha_hat[:,1].sum(dim=1) #Eq. 9 
         #print("multilevel_cont", multilevel_context)
-        multilevel_context=(visual_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
         #print("alter multilevel_cont", multilevel_context)
 
         return multilevel_context, alpha_hat
@@ -198,6 +196,8 @@ class DecoderWithAttention(nn.Module):
             print("using our multi attention")
             if model_type == "SAR_avg":
                 retrieved_dim= self.embed_dim # retrieved target correspond to avg word embeddings from caption
+            elif model_type == "SAR_norm":
+                retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
 
             self.attention = MultiLevelAttention(encoder_dim, decoder_dim, attention_dim, retrieved_dim)  # proposed attention network
             self.decode_step = nn.LSTMCell(embed_dim + retrieved_dim, decoder_dim, bias=True)  # decoding LSTMCell
@@ -214,6 +214,8 @@ class DecoderWithAttention(nn.Module):
         if model_type== "BASELINE":
             self.init_c = nn.Linear(encoder_dim, decoder_dim) # linear layer to find initial hidden state of LSTMCell
         elif model_type == "SAR_avg": #this model uses the avg embedding (dim=embed_dim) of the nearest target caption
+            self.init_c = nn.Linear(embed_dim, decoder_dim) 
+        elif model_type == "SAR_norm": #this model uses the weighted avg embedding (dim=embed_dim) of the nearest target caption
             self.init_c = nn.Linear(embed_dim, decoder_dim) 
 
         #self.init_c = nn.Linear(embed_dim, decoder_dim)  # linear layer to find initial cell state of LSTMCell
@@ -289,12 +291,36 @@ class DecoderWithAttention(nn.Module):
         elif self.model_type == "SAR_avg":
             #print("self target look", self.target_lookup)
             #print("retrieved_neighbors_index",retrieved_neighbors_index)
-            target_neighbors=self.target_lookup[retrieved_neighbors_index*5]
+            target_neighbors=self.target_lookup[retrieved_neighbors_index*5] # each image has 5 captions
             target_neighbors_representation = self.embedding(target_neighbors).mean(1)
             
             # print("target caps", target_neighbors)
             # print("embed of near", target_neighbors_representation.size())
             c = self.init_c(target_neighbors_representation)
+
+        elif self.model_type == "SAR_norm":
+            target_neighbors=self.target_lookup[retrieved_neighbors_index*5] # each image has 5 captions
+            
+            caps_embeddings = self.embedding(target_neighbors)
+            caps_norms=caps_embeddings.norm(p=2, dim=-1)
+            weighted_embedding = torch.sum(
+                caps_embeddings * caps_norms.unsqueeze(-1), dim=1) / torch.sum(caps_norms, dim=-1).unsqueeze(-1)
+
+            target_neighbors_representation = weighted_embedding
+            
+            c = self.init_c(target_neighbors_representation)
+
+        # elif self.model_type == "SAR_bert":
+        #     #print("self target look", self.target_lookup)
+        #     #print("retrieved_neighbors_index",retrieved_neighbors_index)
+        #     target_neighbors=self.target_lookup[retrieved_neighbors_index*5] # each image has 5 captions
+        #     # [1,2,3,5]-> ["ola", "as", "asas"]
+        #     # 
+        #     target_neighbors_representation = bert(target_neighbors)
+        #     #target_neighbors_representation = self.embedding(target_neighbors).mean(1)
+        #     # print("target caps", target_neighbors)
+        #     # print("embed of near", target_neighbors_representation.size())
+        #     c = self.init_c(target_neighbors_representation)
 
         else:
             raise Exception ("no mode model")
@@ -325,6 +351,9 @@ class DecoderWithAttention(nn.Module):
         encoder_out = encoder_out[sort_ind]
         encoded_captions = encoded_captions[sort_ind]
         retrieved_neighbors_index = retrieved_neighbors_index[sort_ind]
+        #print("retireved neig index size", retrieved_neighbors_index.size())
+        #print("retireved neig index", retrieved_neighbors_index)
+
         # print("sort_ind index", sort_ind)
         # print("retrieved_neighbors_index",retrieved_neighbors_index)
         # print("original caps", encoded_captions)
