@@ -12,7 +12,7 @@ from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import numpy as np
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 #os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -53,8 +53,8 @@ print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 
-MULTILEVEL_ATTENTION = True
-MODEL_TYPE = "SAR_bert"
+MULTILEVEL_ATTENTION = False
+MODEL_TYPE = "SAR_avg"
 #BASELINE
 #SAR_avg
 #SAR_norm
@@ -220,7 +220,7 @@ def main():
             epochs_since_improvement = 0
 
         # Save checkpoint
-        save_checkpoint(data_name + "_"+MODEL_TYPE, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
+        save_checkpoint(data_name + "_"+MODEL_TYPE+str(MULTILEVEL_ATTENTION), epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
                         decoder_optimizer, recent_bleu4, is_best)
         #break
 
