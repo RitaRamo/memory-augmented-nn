@@ -74,7 +74,7 @@ def main():
         word_map = json.load(j)
 
     with open(os.path.join(data_folder,   'TRAIN'+'_CAPTIONS_' + data_name + '.json'), 'r') as j:
-        retrieval_lookup_table = torch.tensor(json.load(j),dtype=torch.int32).to(device)
+        retrieval_lookup_table = torch.tensor(json.load(j)).to(device)
 
     # Initialize / load checkpoint
     if checkpoint is None:

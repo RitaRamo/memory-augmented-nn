@@ -65,7 +65,7 @@ class ImageRetrieval():
 
         #data
         self.device=device
-        self.imgs_indexes_of_dataloader = torch.tensor([], dtype=torch.int32).to(device)
+        self.imgs_indexes_of_dataloader = torch.tensor([]).long().to(device)
         #print("self.imgs_indexes_of_dataloader type", self.imgs_indexes_of_dataloader)
 
         #print("len img dataloader", self.imgs_indexes_of_dataloader.size())
@@ -79,7 +79,7 @@ class ImageRetrieval():
         for i, (imgs, imgs_indexes) in enumerate(train_dataloader_images):
             #add to the datastore
             imgs=imgs.to(self.device)
-            imgs_indexes = imgs_indexes.int().to(self.device)
+            imgs_indexes = imgs_indexes.long().to(self.device)
             #print("img index type", imgs_indexes)
             encoder_output = self.encoder(imgs)
 
