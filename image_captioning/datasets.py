@@ -79,7 +79,7 @@ class ImageRetrieval():
         for i, (imgs, imgs_indexes) in enumerate(train_dataloader_images):
             #add to the datastore
             imgs=imgs.to(self.device)
-            imgs_indexes = imgs_indexes.to(self.device)
+            imgs_indexes = imgs_indexes.int().to(self.device)
             print("img index type", imgs_indexes)
             encoder_output = self.encoder(imgs)
 
