@@ -9,12 +9,15 @@ if __name__ == "__main__":
     if MODEL == "BASELINE":
         generated_sentences_path = "baseline.json"
         scores_path = "baseline_coco_results.json"
-    elif MODEL == "NEAREST":
-        generated_sentences_path = "nearest.json"
-        scores_path = "nearest_coco_results.json"
-    elif MODEL == "ATTENTION_NEAREST":
-        generated_sentences_path = "SATN.json"
-        scores_path = "SATN_coco_results.json"
+    elif MODEL == "SAR_avg":
+        generated_sentences_path = "SAR_avg.json"
+        scores_path = "SAR_avg_coco_results.json"
+    elif MODEL == "SAR_norm":
+        generated_sentences_path = "SAR_norm.json"
+        scores_path = "SAR_norm_coco_results.json"
+    elif MODEL == "SAR_bert":
+        generated_sentences_path = "SAR_bert.json"
+        scores_path = "SAR_bert_coco_results.json"
     else:
         raise Exception("unknown model")
 
