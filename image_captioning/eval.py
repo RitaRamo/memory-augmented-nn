@@ -19,6 +19,7 @@ MODEL_TYPE = "SAR_avg"
 
 #if MODEL_TYPE == "BASELINE":
 checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
+print("checkpoint", checkpoint)
 # elif MODEL_TYPE == "SAR_avg":
 #     checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_SAR_avg.pth.tar'
 # elif MODEL_TYPE == "SAR_norm":
