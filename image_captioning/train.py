@@ -53,11 +53,11 @@ fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 
 MULTILEVEL_ATTENTION = True
-MODEL_TYPE = "SAR_avg"
+MODEL_TYPE = "SAR_norm"
 #BASELINE
 #SAR_avg
 #SAR_norm
-#SAR_bert
+#SAR_bert 
 
 print("batch size and epochs", batch_size, epochs)
 
@@ -210,7 +210,7 @@ def main():
         # Save checkpoint
         save_checkpoint(data_name + "_"+MODEL_TYPE, epoch, epochs_since_improvement, encoder, decoder, encoder_optimizer,
                         decoder_optimizer, recent_bleu4, is_best)
-
+        #break
 
 def train(train_loader, encoder, decoder, retrieval, criterion, encoder_optimizer, decoder_optimizer, epoch):
     """
@@ -408,6 +408,7 @@ def validate(val_loader, encoder, decoder, retrieval, criterion):
             assert len(references) == len(hypotheses)
 
             #print(stop)
+            #break
 
         # Calculate BLEU-4 scores
         bleu4 = corpus_bleu(references, hypotheses)
