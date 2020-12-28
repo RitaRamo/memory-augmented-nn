@@ -83,7 +83,7 @@ class ImageRetrieval():
             encoder_output = encoder_output.view(encoder_output.size()[0], -1, encoder_output.size()[-1])
             input_img = encoder_output.mean(dim=1)
             
-            self.datastore.add(input_img.cpu()numpy())
+            self.datastore.add(input_img.cpu().numpy())
 
             if i%5==0:
                 print("i and img index of ImageRetrival",i, imgs_indexes)
