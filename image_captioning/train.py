@@ -41,7 +41,7 @@ start_epoch = 0
 epochs = 100
 # keeps track of number of epochs since there's been an improvement in validation BLEU
 epochs_since_improvement = 0
-batch_size = 4
+batch_size = 32
 workers = 1  # for data-loading; right now, only 1 works with h5py
 encoder_lr = 1e-4  # learning rate for encoder if fine-tuning
 decoder_lr = 4e-4  # learning rate for decoder
