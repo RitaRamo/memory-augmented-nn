@@ -289,7 +289,6 @@ class DecoderWithAttention(nn.Module):
         elif self.model_type == "SAR_avg":
             print("self target look", self.target_lookup)
             print("retrieved_neighbors_index",retrieved_neighbors_index)
-            print(stop)
             target_neighbors=self.target_lookup[retrieved_neighbors_index*5]
             target_neighbors_representation = self.embedding(target_neighbors).mean(1)
             
