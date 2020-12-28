@@ -12,9 +12,10 @@ from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import numpy as np
-
+from sentence_transformers import SentenceTransformer
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Data parameters
 
@@ -53,7 +54,7 @@ fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 
 MULTILEVEL_ATTENTION = True
-MODEL_TYPE = "SAR_norm"
+MODEL_TYPE = "SAR_bert"
 #BASELINE
 #SAR_avg
 #SAR_norm
@@ -73,8 +74,19 @@ def main():
     with open(word_map_file, 'r') as j:
         word_map = json.load(j)
 
-    with open(os.path.join(data_folder,   'TRAIN'+'_CAPTIONS_' + data_name + '.json'), 'r') as j:
-        retrieval_lookup_table = torch.tensor(json.load(j)).to(device)
+    if MODEL_TYPE=="SAR_bert": #with bert you need the original text (before having ids)
+
+        with open(os.path.join(data_folder, 'TRAIN'+'_TEXT_FIRST_CAPTIONS_' + data_name + '.json'), 'r') as j:
+            train_text_caps = list(json.load(j))
+            #print("retrieval lookup table", len(train_text_caps))
+            model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+            retrieval_lookup_table= torch.tensor(model.encode(train_text_caps)).to(device)
+            #print("retrieval lookup table with bert", retrieval_lookup_table)
+    else:
+        with open(os.path.join(data_folder, 'TRAIN'+'_CAPTIONS_' + data_name + '.json'), 'r') as j:
+            retrieval_lookup_table = torch.tensor(json.load(j)).to(device)
+            
+            
 
     # Initialize / load checkpoint
     if checkpoint is None:
