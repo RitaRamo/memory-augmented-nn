@@ -248,7 +248,7 @@ def train(train_loader, encoder, decoder, retrieval, criterion, encoder_optimize
         # Forward prop.
         imgs = encoder(imgs)
         imgs = imgs.view(imgs.size()[0], -1, imgs.size()[-1])
-        print("this was the imgs out", imgs.size())
+        #print("this was the imgs out", imgs.size())
         input_imgs = imgs.mean(dim=1)
         nearest_imgs = retrieval.retrieve_nearest_for_train_query(input_imgs.cpu().numpy())
 
