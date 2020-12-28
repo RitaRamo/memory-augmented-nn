@@ -38,6 +38,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
     train_image_paths = []
     train_image_captions = []
     train_image_id = []
+    train_image_first_captions = []
 
     val_image_paths = []
     val_image_captions = []
@@ -65,6 +66,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
                 }
             )
 
+        first=True
         captions = []
         captions_imgid = []
 
@@ -74,6 +76,9 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
             if len(c['tokens']) <= max_len:
                 captions.append(c['tokens'])
                 captions_imgid.append(img['imgid'])
+                if first:
+                    first_caption=c['raw']
+                    first=False
 
             if img['split'] in {'test'}:
                 caption_sentence = " ".join(c['tokens'])
@@ -97,6 +102,7 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
         if img['split'] in {'train', 'restval'}:
             train_image_paths.append(path)
             train_image_captions.append(captions)
+            train_image_first_captions.append(first_caption)
             train_image_id.extend(captions_imgid)
         elif img['split'] in {'val'}:
             val_image_paths.append(path)
@@ -159,6 +165,12 @@ def create_input_files(dataset, karpathy_json_path, image_folder, captions_per_i
 
     # Sample captions for each image, save images to HDF5 file, and captions and their lengths to JSON files
     seed(123)
+
+    # with open(os.path.join(output_folder, 'TRAIN_TEXT_CAPTIONS_' + base_filename + '.json'), 'w') as j:
+    #         json.dump(train_image_captions, j)
+
+    with open(os.path.join(output_folder, 'TRAIN_TEXT_FIRST_CAPTIONS_' + base_filename + '.json'), 'w') as j:
+            json.dump(train_image_first_captions, j)
     for impaths, imcaps, img_ids, split in [(train_image_paths, train_image_captions, train_image_id, 'TRAIN'),
                                             (val_image_paths, val_image_captions,
                                              val_image_id, 'VAL'),
