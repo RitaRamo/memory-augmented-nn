@@ -195,7 +195,7 @@ def evaluate(beam_size):
 
             # Which sequences are incomplete (didn't reach <end>)?
             incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
-                               next_word != word_map['<end>']]
+                               next_word != word_map['<end>']].long()
             complete_inds = list(
                 set(range(len(next_word_inds))) - set(incomplete_inds))
 
