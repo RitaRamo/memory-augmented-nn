@@ -188,7 +188,8 @@ def evaluate(beam_size):
             # Convert unrolled indices to actual indices of scores
             prev_word_inds = top_k_words / vocab_size  # (s)
             next_word_inds = top_k_words % vocab_size  # (s)
-
+            print("prev word inds", prev_word_inds)
+            print(stop)
             # Add new words to sequences
             seqs = torch.cat(
                 [seqs[prev_word_inds], next_word_inds.unsqueeze(1)], dim=1)  # (s, step+1)
