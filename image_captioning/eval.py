@@ -210,8 +210,8 @@ def evaluate(beam_size):
                 break
             incomplete_inds=torch.tensor(incomplete_inds).long()
             seqs = seqs[incomplete_inds]
-            h = h[prev_word_inds[incomplete_inds]]
-            c = c[prev_word_inds[incomplete_inds]]
+            h = h[prev_word_inds[incomplete_inds].long()]
+            c = c[prev_word_inds[incomplete_inds].long()]
             encoder_out = encoder_out[prev_word_inds[incomplete_inds]]
             top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
             k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
