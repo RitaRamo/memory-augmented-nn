@@ -12,7 +12,7 @@ from datasets import *
 from utils import *
 from nltk.translate.bleu_score import corpus_bleu
 import numpy as np
-#from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
