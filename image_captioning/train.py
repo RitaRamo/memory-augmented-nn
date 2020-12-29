@@ -15,7 +15,7 @@ import numpy as np
 #from sentence_transformers import SentenceTransformer
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
-#os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 # Data parameters
 
@@ -54,8 +54,8 @@ print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 
-MULTILEVEL_ATTENTION = False
-MODEL_TYPE = "SAR_avg"
+MULTILEVEL_ATTENTION = True
+MODEL_TYPE = "SAR_bert"
 #BASELINE
 #SAR_avg
 #SAR_norm
