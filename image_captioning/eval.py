@@ -195,7 +195,7 @@ def evaluate(beam_size):
 
             # Which sequences are incomplete (didn't reach <end>)?
             incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
-                               next_word != word_map['<end>']].long()
+                               next_word != word_map['<end>']]
             complete_inds = list(
                 set(range(len(next_word_inds))) - set(incomplete_inds))
 
@@ -208,6 +208,7 @@ def evaluate(beam_size):
             # Proceed with incomplete sequences
             if k == 0:
                 break
+            incomplete_inds=torch.tensor(incomplete_inds).long()
             seqs = seqs[incomplete_inds]
             h = h[prev_word_inds[incomplete_inds]]
             c = c[prev_word_inds[incomplete_inds]]
