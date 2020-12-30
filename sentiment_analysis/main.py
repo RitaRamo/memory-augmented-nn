@@ -34,15 +34,18 @@ END_TOKEN = "<end>"
 UNK_TOKEN = "<unk>"
 PAD_TOKEN = "<pad>"
 MAX_LEN = 500
+DATA_FOLDER="dataset_splits/" #""
+device = "cpu"
+#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def main():
     # torch.multiprocessing.freeze_support()
     # 1- vocabulario
     #
-    with open('train_sents.json', 'r') as j:
+    with open(DATA_FOLDER+'train_sents.json', 'r') as j:
         train_sents = json.load(j)
-    with open('train_labels.json', 'r') as j:
+    with open(DATA_FOLDER+'train_labels.json', 'r') as j:
         train_labels = json.load(j)
 
     # print("train sents yeah", train_sents)
@@ -108,93 +111,42 @@ def main():
 
         def __getitem__(self, i):
             return torch.tensor(self.sents_ids[i]).long(), torch.tensor(self.lens[i]).long(), torch.tensor(
-                self.labels[i]).long()
+                self.labels[i], dtype=torch.float64)
 
         def __len__(self):
             return self.len_dataset
 
-    train_sents_ids, train_lens, train_labels, val_sents_ids, val_lens, val_labels = train_test_split(train_sents_ids,
+    # train_iterator = torch.utils.data.DataLoader(
+    #     SADataset(train_sents_ids, train_lens, train_labels),
+    #     batch_size=4, shuffle=False, num_workers=0
+    # )
+    
+    # for i, (sents, lens, labels) in enumerate(train_iterator):
+    #     print("batch i", i)
+    #     print("sents", sents)
+    #     print("len", lens)
+    #     print("labels", labels)
+    #     break
+    
+    train_sents_ids, val_sents_ids, train_lens, val_lens, train_labels, val_labels = train_test_split(train_sents_ids,
                                                                                                       train_lens,
                                                                                                       train_labels,
                                                                                                       test_size=0.1,
-                                                                                                      random_state=41)
+                                                                                                      random_state=42)
 
-    # TODO: SUFFLE TRUE!!!!
+    print("train_sents_ids", train_labels)
+    print("val_labels", val_labels)
+
     train_iterator = torch.utils.data.DataLoader(
         SADataset(train_sents_ids, train_lens, train_labels),
-        batch_size=4, shuffle=False, num_workers=0
+        batch_size=BATCH_SIZE, shuffle=True, num_workers=0
     )
 
     val_iterator = torch.utils.data.DataLoader(
         SADataset(val_sents_ids, val_lens, val_labels),
-        batch_size=4, shuffle=False, num_workers=0
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
 
-    for i, (sents, lens, labels) in enumerate(val_iterator):
-        print("batch i", i)
-        print("sents", sents)
-        print("len", lens)
-        print("labels", labels)
-        print(stop)
-
-    # class TrainRetrievalDataset(Dataset):
-    #     """
-    #     A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
-    #     """
-
-    #     def __init__(self, sents, labels):
-    #       self.sents=sents
-    #       self.labels=labels
-    #       print("entrei no init")
-
-    #     def __getitem__(self, i):
-    #       print("entrei aqui no get item")
-    #       return torch.tensor([1,2,3])
-
-    #     def __len__(self):
-    #       #print("this is the actual len on __len", self.dataset_size)
-    #     #   sent_text= sents[i]
-    #     #   tokens_to_integer = [token_to_id.get(
-    #     #         token, token_to_id[UNK_TOKEN]) for token in sent_text[i]]
-
-    #     #    input_sent = np.zeros(
-    #     #     (1, max_len)) + token_to_id[PAD_TOKEN]
-
-    #     #    input_sent = 
-
-    #       return 
-
-    # TODO: SEM ESQUECER DO SLIP!!
-
-    # print(stop)
-    # def tokenizer(doc):
-    #     return [i.lower() for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
-    #             i != '' and i != ' ' and i != '\n']
-
-    # TEXT = data.Field(tokenize=tokenizer, include_lengths=True)
-
-    # LABEL = data.LabelField(dtype=torch.float)
-
-    # train_data, test_data = datasets.IMDB.splits(TEXT, LABEL)
-
-    # train_data, valid_data = train_data.split(random_state=random.seed(seed))
-
-    # TEXT.build_vocab(train_data,
-    #                  max_size=MAX_VOCAB_SIZE,
-    #                  vectors="glove.6B.300d",
-    #                  unk_init=torch.Tensor.normal_)
-
-    # LABEL.build_vocab(train_data)
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    # train_iterator, valid_iterator, test_iterator = data.BucketIterator.splits(
-    #     (train_data, valid_data, test_data),
-    #     batch_size=BATCH_SIZE,
-    #     sort_within_batch=True,
-    #     device=device)
-
-    # index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.dim)
 
     #################################################MODEL####################################################
 
@@ -274,26 +226,26 @@ def main():
         def forward(self, text, text_lengths):
             # text = [sent len, batch size]
 
+            # tamanho do texto, tamanho do batch
             # text torch.Size([144, 64])
-
             # text_lenghts torch.Size([64])
-
             embedded = self.dropout(self.embedding(text))
             # embedded torch.Size([144, 64, 100])
             # embedded = [sent len, batch size, emb dim]
-            print('embedded', embedded.shape())
+            #print('embedded', embedded.size())
 
             # pack sequence
-            device = "cpu"
             packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to(device))
             # packed_embedded torch.Size([9152, 100])
-            print('packed_embedded', packed_embedded.shape())
+            #print("packed embedded", packed_embedded)
+            #print('packed_embedded', packed_embedded.data.size())
 
             packed_output, (hidden, cell) = self.rnn(packed_embedded)
             # packed_output torch.Size([9152, 512])
-            print('packed_output', packed_output.shape())
-            print('hidden', hidden.shape())
-            print('cell', cell.shape())
+            #print("packed output", packed_output)
+            #print('packed_output', packed_output.data.size())
+            #print('hidden', hidden.size())
+            #print('cell', cell.size())
 
             # hidden torch.Size([1, 64, 512])
 
@@ -307,8 +259,8 @@ def main():
             # output_lengths torch.Size([64])
 
             # output = [sent len, batch size, hid dim]
-            print('output', output.shape())
-            print('output_lengths', output_lengths.shape())
+            #print('output', output.size())
+            #print('output_lengths', output_lengths.size())
 
             # output over padding tokens are zero tensors
 
@@ -321,8 +273,8 @@ def main():
             # attn_output torch.Size([64, 512])
             # hidden = [batch size, hid dim * num directions]
             # self.fc(attn_output) torch.Size([64, 1])
-            print('attn_output', attn_output.shape())
-            print('self.fc(self.dropout(attn_output)', self.fc(self.dropout(attn_output).shape()))
+            #print('attn_output', attn_output.size())
+            #print('self.fc(self.dropout(attn_output)', self.fc(self.dropout(attn_output)).size())
             return self.fc(self.dropout(attn_output))
 
     ############################################TRAIN#################################################
@@ -401,9 +353,15 @@ def main():
         for batch, (text, text_lengths, label) in enumerate(iterator):
             optimizer.zero_grad()
 
-            # text, text_lengths = batch.text
-
+            text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
+            text = text[sort_ind]
+            label = label[sort_ind]            
+            text= text.permute(1, 0)
+          
             predictions = model(text, text_lengths).squeeze(1)
+
+            #print("labels", label)
+            #print("labels long", label.long())
 
             loss = criterion(predictions, label)
 
@@ -419,6 +377,9 @@ def main():
             epoch_acc += acc.item()
             epoch_f1 += f1.item()
 
+            #TODO: REMOVER
+            #break
+
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
     def evaluate(model, iterator, criterion):
@@ -430,6 +391,10 @@ def main():
         with torch.no_grad():
             for batch, (text, text_lengths, label) in enumerate(iterator):
                 # text, text_lengths = batch.text
+                text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
+                text = text[sort_ind]
+                label = label[sort_ind]
+                text= text.permute(1, 0)
 
                 predictions = model(text, text_lengths).squeeze(1)
 
@@ -442,6 +407,9 @@ def main():
                 epoch_loss += loss.item()
                 epoch_acc += acc.item()
                 epoch_f1 += f1.item()
+
+                #TODO: REMOVER
+                #break
 
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
@@ -466,7 +434,7 @@ def main():
         start_time = time.time()
 
         train_loss, train_acc, train_f1 = train(model, train_iterator, optimizer, criterion)
-        valid_loss, valid_acc, valid_f1 = evaluate(model, valid_iterator, criterion)
+        valid_loss, valid_acc, valid_f1 = evaluate(model, val_iterator, criterion)
 
         end_time = time.time()
 
