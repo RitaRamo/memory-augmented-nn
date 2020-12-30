@@ -1,6 +1,6 @@
 import torch
-#from torchtext import data
-#from torchtext import datasets
+# from torchtext import data
+# from torchtext import datasets
 from sklearn.metrics import f1_score
 import re
 import random
@@ -13,6 +13,7 @@ import json
 from toolz.itertoolz import unique
 from collections import OrderedDict, Counter
 from torch.utils.data import DataLoader, Dataset
+from sklearn.model_selection import train_test_split
 
 seed = 1234
 
@@ -23,60 +24,59 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
 
-
 #################################################DATA#####################################################
 
 MAX_VOCAB_SIZE = 25000
 BATCH_SIZE = 32
-MIN_FREQ_WORD=5
-START_TOKEN= "<start>"
-END_TOKEN=  "<end>"
-UNK_TOKEN= "<unk>"
-PAD_TOKEN= "<pad>"
+MIN_FREQ_WORD = 5
+START_TOKEN = "<start>"
+END_TOKEN = "<end>"
+UNK_TOKEN = "<unk>"
+PAD_TOKEN = "<pad>"
 MAX_LEN = 500
 
+
 def main():
-    #torch.multiprocessing.freeze_support()
-    #1- vocabulario
+    # torch.multiprocessing.freeze_support()
+    # 1- vocabulario
     #
-    with open('/Users/RitaRamos/Documents/PhD/Aulas/DeepStructuredLearning/memory-augmented-nn/sentiment_analysis/dataset_splits/train_sents.json', 'r') as j:
-            train_sents = json.load(j)
-    with open('/Users/RitaRamos/Documents/PhD/Aulas/DeepStructuredLearning/memory-augmented-nn/sentiment_analysis/dataset_splits/train_labels.json', 'r') as j:
-            train_labels = json.load(j)
+    with open('train_sents.json', 'r') as j:
+        train_sents = json.load(j)
+    with open('train_labels.json', 'r') as j:
+        train_labels = json.load(j)
 
-    #print("train sents yeah", train_sents)
+    # print("train sents yeah", train_sents)
 
-    train_words=" ".join(train_sents).split()
+    train_words = " ".join(train_sents).split()
     words_counter = Counter(train_words)
     words = [w for w in words_counter.keys() if words_counter[w] > MIN_FREQ_WORD]
-    #print("our words", words)
-    #print("len words", len(words))
+    # print("our words", words)
+    # print("len words", len(words))
 
-    vocab = [PAD_TOKEN, START_TOKEN,END_TOKEN, UNK_TOKEN]+words
-    #print("vocab", vocab)
+    vocab = [PAD_TOKEN, START_TOKEN, END_TOKEN, UNK_TOKEN] + words
+    # print("vocab", vocab)
     print("vocab", len(vocab))
 
     token_to_id = OrderedDict([(value, index)
-                                for index, value in enumerate(vocab)])
+                               for index, value in enumerate(vocab)])
     id_to_token = OrderedDict([(index, value)
-                                for index, value in enumerate(vocab)])
+                               for index, value in enumerate(vocab)])
 
-    sents_with_tokens=[text.split() for text in train_sents]
+    sents_with_tokens = [text.split() for text in train_sents]
 
-    print("token_to_id",token_to_id)
+    print("token_to_id", token_to_id)
 
     def convert_sent_tokens_to_ids(sent_of_tokens, max_len, token_to_id):
         len_sents = []
-        #+2 to account for start and end token
-        input_sents = np.zeros((len(sent_of_tokens), max_len+2), dtype=np.int32) + token_to_id[PAD_TOKEN]
+        # +2 to account for start and end token
+        input_sents = np.zeros((len(sent_of_tokens), max_len + 2), dtype=np.int32) + token_to_id[PAD_TOKEN]
 
         for i in range(len(sent_of_tokens)):
-
-            tokens_to_integer = [token_to_id.get(token, token_to_id[UNK_TOKEN]) for token in sent_of_tokens[i]] 
+            tokens_to_integer = [token_to_id.get(token, token_to_id[UNK_TOKEN]) for token in sent_of_tokens[i]]
 
             sent = tokens_to_integer[:max_len]
 
-            sent_with_spetial_tokens = [token_to_id[START_TOKEN]] + sent + [token_to_id[END_TOKEN]] 
+            sent_with_spetial_tokens = [token_to_id[START_TOKEN]] + sent + [token_to_id[END_TOKEN]]
 
             input_sents[i, :len(sent_with_spetial_tokens)] = sent_with_spetial_tokens
 
@@ -84,11 +84,10 @@ def main():
 
         return input_sents, len_sents
 
-
-    train_sents_ids, train_lens= convert_sent_tokens_to_ids(sents_with_tokens, MAX_LEN, token_to_id)
+    train_sents_ids, train_lens = convert_sent_tokens_to_ids(sents_with_tokens, MAX_LEN, token_to_id)
     print("INPUT sents", train_sents_ids)
-    #print("len_sents", train_lens)
 
+    # print("len_sents", train_lens)
 
     class SADataset(Dataset):
         """
@@ -97,40 +96,46 @@ def main():
 
         def __init__(self, sents_ids, lens, labels):
             self.sents_ids = sents_ids
-            self.lens=lens
+            self.lens = lens
             self.len_dataset = len(sents_ids)
             self.labels = labels
 
             print("entrei no init", sents_ids)
-            #print("self sents", self.sents)
-            #print("self sents_tokens", self.sents_tokens)
-            #print("self labels", self.labels)
-            #print("self len data", self.len_dataset)
+            # print("self sents", self.sents)
+            # print("self sents_tokens", self.sents_tokens)
+            # print("self labels", self.labels)
+            # print("self len data", self.len_dataset)
 
         def __getitem__(self, i):
-            return torch.tensor(self.sents_ids[i]).long(), torch.tensor(self.lens[i]).long(), torch.tensor(self.labels[i]).long()
-        
+            return torch.tensor(self.sents_ids[i]).long(), torch.tensor(self.lens[i]).long(), torch.tensor(
+                self.labels[i]).long()
+
         def __len__(self):
             return self.len_dataset
 
-    #TODO: SUFFLE TRUE!!!!
-    train_iterator=torch.utils.data.DataLoader(
-            SADataset(train_sents_ids, train_lens, train_labels),
-            batch_size=4, shuffle=False, num_workers=0
+    train_sents_ids, train_lens, train_labels, val_sents_ids, val_lens, val_labels = train_test_split(train_sents_ids,
+                                                                                                      train_lens,
+                                                                                                      train_labels,
+                                                                                                      test_size=0.1,
+                                                                                                      random_state=41)
+
+    # TODO: SUFFLE TRUE!!!!
+    train_iterator = torch.utils.data.DataLoader(
+        SADataset(train_sents_ids, train_lens, train_labels),
+        batch_size=4, shuffle=False, num_workers=0
     )
 
-    val_iterator=torch.utils.data.DataLoader(
-            SADataset(train_sents_ids[:10,:], train_lens[:10], train_labels[:10]),
-            batch_size=4, shuffle=False, num_workers=0
+    val_iterator = torch.utils.data.DataLoader(
+        SADataset(val_sents_ids, val_lens, val_labels),
+        batch_size=4, shuffle=False, num_workers=0
     )
 
-    for i, (sents, lens, labels) in enumerate(train_dataloader):
+    for i, (sents, lens, labels) in enumerate(val_iterator):
         print("batch i", i)
         print("sents", sents)
         print("len", lens)
         print("labels", labels)
         print(stop)
-
 
     # class TrainRetrievalDataset(Dataset):
     #     """
@@ -145,13 +150,13 @@ def main():
     #     def __getitem__(self, i):
     #       print("entrei aqui no get item")
     #       return torch.tensor([1,2,3])
-    
+
     #     def __len__(self):
     #       #print("this is the actual len on __len", self.dataset_size)
     #     #   sent_text= sents[i]
     #     #   tokens_to_integer = [token_to_id.get(
     #     #         token, token_to_id[UNK_TOKEN]) for token in sent_text[i]]
-                
+
     #     #    input_sent = np.zeros(
     #     #     (1, max_len)) + token_to_id[PAD_TOKEN]
 
@@ -159,15 +164,12 @@ def main():
 
     #       return 
 
+    # TODO: SEM ESQUECER DO SLIP!!
 
-    #TODO: SEM ESQUECER DO SLIP!!
-
-
-    #print(stop)
+    # print(stop)
     # def tokenizer(doc):
     #     return [i.lower() for i in re.split(r"([-.\"',:? !\$#@~()*&\^%;\[\]/\\\+<>\n=])", doc) if
     #             i != '' and i != ' ' and i != '\n']
-
 
     # TEXT = data.Field(tokenize=tokenizer, include_lengths=True)
 
@@ -184,8 +186,6 @@ def main():
 
     # LABEL.build_vocab(train_data)
 
-
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # train_iterator, valid_iterator, test_iterator = data.BucketIterator.splits(
@@ -194,21 +194,20 @@ def main():
     #     sort_within_batch=True,
     #     device=device)
 
-
     # index = faiss.GpuIndexFlatL2(faiss.StandardGpuResources(), self.dim)
-
 
     #################################################MODEL####################################################
 
     class SARModel(nn.Module):
-        def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, attention_dim, n_layers, dropout, pad_idx):
+        def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, attention_dim, n_layers, dropout,
+                     pad_idx):
             super().__init__()
 
             self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
 
             self.rnn = nn.LSTM(embedding_dim,
-                            hidden_dim,
-                            num_layers=n_layers)
+                               hidden_dim,
+                               num_layers=n_layers)
 
             self.fc = nn.Linear(attention_dim, output_dim)
 
@@ -282,14 +281,19 @@ def main():
             embedded = self.dropout(self.embedding(text))
             # embedded torch.Size([144, 64, 100])
             # embedded = [sent len, batch size, emb dim]
+            print('embedded', embedded.shape())
 
             # pack sequence
             device = "cpu"
             packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to(device))
             # packed_embedded torch.Size([9152, 100])
+            print('packed_embedded', packed_embedded.shape())
 
             packed_output, (hidden, cell) = self.rnn(packed_embedded)
             # packed_output torch.Size([9152, 512])
+            print('packed_output', packed_output.shape())
+            print('hidden', hidden.shape())
+            print('cell', cell.shape())
 
             # hidden torch.Size([1, 64, 512])
 
@@ -303,6 +307,9 @@ def main():
             # output_lengths torch.Size([64])
 
             # output = [sent len, batch size, hid dim]
+            print('output', output.shape())
+            print('output_lengths', output_lengths.shape())
+
             # output over padding tokens are zero tensors
 
             # hidden = [num layers, batch size, hid dim]
@@ -314,10 +321,9 @@ def main():
             # attn_output torch.Size([64, 512])
             # hidden = [batch size, hid dim * num directions]
             # self.fc(attn_output) torch.Size([64, 1])
+            print('attn_output', attn_output.shape())
+            print('self.fc(self.dropout(attn_output)', self.fc(self.dropout(attn_output).shape()))
             return self.fc(self.dropout(attn_output))
-
-
-
 
     ############################################TRAIN#################################################
 
@@ -326,7 +332,6 @@ def main():
         for param_group in optimizer.param_groups:
             param_group['lr'] = param_group['lr'] * shrink_factor
         print("The new learning rate is %f\n" % (optimizer.param_groups[0]['lr'],))
-
 
     INPUT_DIM = len(vocab)
     EMBEDDING_DIM = 300
@@ -338,33 +343,31 @@ def main():
     PAD_IDX = token_to_id[PAD_TOKEN]
 
     model = SARModel(INPUT_DIM,
-                    EMBEDDING_DIM,
-                    HIDDEN_DIM,
-                    OUTPUT_DIM,
-                    ATTENTION_DIM,
-                    N_LAYERS,
-                    DROPOUT,
-                    PAD_IDX)
-
+                     EMBEDDING_DIM,
+                     HIDDEN_DIM,
+                     OUTPUT_DIM,
+                     ATTENTION_DIM,
+                     N_LAYERS,
+                     DROPOUT,
+                     PAD_IDX)
 
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
     print(f'The model has {count_parameters(model):,} trainable parameters')
 
-    #pretrained_embeddings = TEXT.vocab.vectors
+    # pretrained_embeddings = TEXT.vocab.vectors
 
-    #print(pretrained_embeddings.shape)
+    # print(pretrained_embeddings.shape)
 
-    #model.embedding.weight.data.copy_(pretrained_embeddings)
+    # model.embedding.weight.data.copy_(pretrained_embeddings)
 
-    #UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
+    # UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
 
-    #model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
-    #model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
+    # model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
+    # model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
 
-    #print(model.embedding.weight.data)
+    # print(model.embedding.weight.data)
 
     optimizer = optim.Adam(model.parameters())
 
@@ -372,7 +375,6 @@ def main():
 
     model = model.to(device)
     criterion = criterion.to(device)
-
 
     def binary_accuracy(preds, y):
         """
@@ -385,11 +387,9 @@ def main():
         acc = correct.sum() / len(correct)
         return acc
 
-
     def f1score(preds, y):
         predictions = torch.round(torch.sigmoid(preds))
         return f1_score(y.cpu().detach().numpy(), predictions.cpu().detach().numpy())
-
 
     def train(model, iterator, optimizer, criterion):
         epoch_loss = 0
@@ -401,7 +401,7 @@ def main():
         for batch, (text, text_lengths, label) in enumerate(iterator):
             optimizer.zero_grad()
 
-            #text, text_lengths = batch.text
+            # text, text_lengths = batch.text
 
             predictions = model(text, text_lengths).squeeze(1)
 
@@ -421,7 +421,6 @@ def main():
 
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
-
     def evaluate(model, iterator, criterion):
         epoch_loss = 0
         epoch_acc = 0
@@ -430,7 +429,7 @@ def main():
 
         with torch.no_grad():
             for batch, (text, text_lengths, label) in enumerate(iterator):
-                #text, text_lengths = batch.text
+                # text, text_lengths = batch.text
 
                 predictions = model(text, text_lengths).squeeze(1)
 
@@ -446,13 +445,11 @@ def main():
 
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
-
     def epoch_time(start_time, end_time):
         elapsed_time = end_time - start_time
         elapsed_mins = int(elapsed_time / 60)
         elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
         return elapsed_mins, elapsed_secs
-
 
     N_EPOCHS = 20
     best_valid_acc = 0
