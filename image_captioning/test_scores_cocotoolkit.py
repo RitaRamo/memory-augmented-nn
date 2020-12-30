@@ -23,6 +23,9 @@ if __name__ == "__main__":
     elif MODEL == "SAR_bert":
         generated_sentences_path = "SAR_bert.json"
         scores_path = "SAR_bert_coco_results.json"
+    elif MODEL == "SAR_norm_wt_m":
+        generated_sentences_path = "SAR_norm_wt_m.json"
+        scores_path = "SAR_norm_wt_m_coco_results.json"
     else:
         raise Exception("unknown model")
 
