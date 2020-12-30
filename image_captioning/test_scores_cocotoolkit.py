@@ -2,7 +2,7 @@ import json
 from coco_caption.pycocotools.coco import COCO
 from coco_caption.pycocoevalcap.eval import COCOEvalCap
 
-MODEL = "SAR_norm_wt_m"
+MODEL = "SAR_bert"
 MULTILEVEL_ATTENTION =True
 if __name__ == "__main__":
 

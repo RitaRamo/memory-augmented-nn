@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_norm_wt_m"
+MODEL_TYPE = "SAR_bert"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
