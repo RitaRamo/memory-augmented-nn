@@ -197,6 +197,8 @@ class DecoderWithAttention(nn.Module):
             retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
         elif model_type == "SAR_bert":
             retrieved_dim= 768 # retrieved target correspond to bert embeddings size
+        elif model_type == "SAR_norm_wt_m":
+            retrieved_dim= self.embed_dim # retrieved target correspond to avg embeddings weighted by norm
 
         #chamas a attention dependo do modelo...dar erro baseline com attentin nearest
         if multi_attention:
@@ -316,6 +318,19 @@ class DecoderWithAttention(nn.Module):
             target_neighbors_representation=self.target_lookup[retrieved_neighbors_index] 
             # print("embed of near", target_neighbors_representation.size())
             c = self.init_c(target_neighbors_representation)
+
+        elif self.model_type == "SAR_norm_wt_m":
+            #equal to sar norm but without the memory celll being inicialzated with retrieved
+            target_neighbors=self.target_lookup[retrieved_neighbors_index*5] # each image has 5 captions
+            
+            caps_embeddings = self.embedding(target_neighbors)
+            caps_norms=caps_embeddings.norm(p=2, dim=-1)
+            weighted_embedding = torch.sum(
+                caps_embeddings * caps_norms.unsqueeze(-1), dim=1) / torch.sum(caps_norms, dim=-1).unsqueeze(-1)
+
+            target_neighbors_representation = weighted_embedding
+            
+            c = self.init_c(mean_encoder_out)
 
         else:
             raise Exception ("no mode model")
