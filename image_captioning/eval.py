@@ -11,8 +11,8 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_bert"
-MULTILEVEL_ATTENTION =True
+MODEL_TYPE = "SAR_norm"
+MULTILEVEL_ATTENTION =False
 #BASELINE
 #SAR_avg
 #SAR_norm
@@ -261,8 +261,12 @@ def evaluate(beam_size):
         with open("SAR_avg.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_norm":
-        with open("SAR_norm.json", 'w+') as f:
-            json.dump(list_hipotheses, f, indent=2)
+        if MULTILEVEL_ATTENTION:
+            with open("SAR_norm.json", 'w+') as f:
+                json.dump(list_hipotheses, f, indent=2)
+        else:
+            with open("SAR_norm_no_multiattention.json", 'w+') as f:
+                json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_bert":
         with open("SAR_bert.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)

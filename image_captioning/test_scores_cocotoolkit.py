@@ -2,7 +2,8 @@ import json
 from coco_caption.pycocotools.coco import COCO
 from coco_caption.pycocoevalcap.eval import COCOEvalCap
 
-MODEL = "SAR_bert"
+MODEL = "SAR_norm"
+MULTILEVEL_ATTENTION =False
 if __name__ == "__main__":
 
     test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMAT.json"
@@ -13,8 +14,12 @@ if __name__ == "__main__":
         generated_sentences_path = "SAR_avg.json"
         scores_path = "SAR_avg_coco_results.json"
     elif MODEL == "SAR_norm":
-        generated_sentences_path = "SAR_norm.json"
-        scores_path = "SAR_norm_coco_results.json"
+        if MULTILEVEL_ATTENTION:
+            generated_sentences_path = "SAR_norm.json"
+            scores_path = "SAR_norm_coco_results.json"
+        else:
+            generated_sentences_path = "SAR_norm_no_multiattention.json"
+            scores_path = "SAR_norm_no_multiattention_coco_results.json"
     elif MODEL == "SAR_bert":
         generated_sentences_path = "SAR_bert.json"
         scores_path = "SAR_bert_coco_results.json"
