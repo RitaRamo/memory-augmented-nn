@@ -217,6 +217,8 @@ class DecoderWithAttention(nn.Module):
 
         if model_type== "BASELINE":
             self.init_c = nn.Linear(encoder_dim, decoder_dim) # linear layer to find initial hidden state of LSTMCell
+        elif model_type== "SAR_norm_wt_m":
+            self.init_c = nn.Linear(encoder_dim, decoder_dim)
         else:
             self.init_c = nn.Linear(retrieved_dim, decoder_dim) 
 
