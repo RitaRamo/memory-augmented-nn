@@ -2,8 +2,8 @@ import json
 from coco_caption.pycocotools.coco import COCO
 from coco_caption.pycocoevalcap.eval import COCOEvalCap
 
-MODEL = "SAR_norm"
-MULTILEVEL_ATTENTION =False
+MODEL = "SAR_norm_wt_m"
+MULTILEVEL_ATTENTION =True
 if __name__ == "__main__":
 
     test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMAT.json"
