@@ -14,6 +14,8 @@ from toolz.itertoolz import unique
 from collections import OrderedDict, Counter
 from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
+from sentence_transformers import SentenceTransformer
+import faiss
 
 seed = 1234
 
@@ -90,6 +92,73 @@ def main():
     train_sents_ids, train_lens = convert_sent_tokens_to_ids(sents_with_tokens, MAX_LEN, token_to_id)
     print("INPUT sents", train_sents_ids)
 
+
+    #print("train sents", train_sents[:10])
+    #model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+    #bert_text = torch.tensor(model.encode(train_sents[:10])).to(device)
+
+    class TrainRetrievalDataset(Dataset):
+        """
+        A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
+        """
+
+        def __init__(self, train_sents):
+            self.train_sents=train_sents
+            #self.train_sents=train_sents[:10]
+            self.dataset_size = len(self.train_sents)
+            self.model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+
+        def __getitem__(self, i):
+            bert_text = self.model.encode(self.train_sents[i][:MAX_LEN])
+            return bert_text
+    
+        def __len__(self):
+            return self.dataset_size
+
+    class TextRetrieval():
+
+        def __init__(self, train_dataloader):
+            dim_examples = 768 #size of bert embeddings
+            self.datastore = faiss.IndexFlatL2(dim_examples) #datastore
+            self._add_examples(train_dataloader)
+
+        def _add_examples(self, train_dataloader):
+            print("\nadding input examples to datastore (retrieval)")
+
+            for i, (text_bert) in enumerate(train_dataloader):
+                
+                self.datastore.add(text_bert.cpu().numpy())
+
+                if i%5==0:
+                    print("batch, n of examples", i, self.datastore.ntotal)
+            
+            print("finish retrieval")
+
+        def retrieve_nearest_for_train_query(self, query_text, k=2):
+            #print("self query img", query_text)
+            D, I = self.datastore.search(query_text, k)     # actual search
+            nearest_input = I[:,1]
+            return nearest_input
+
+        def retrieve_nearest_for_val_or_test_query(self, query_text, k=1):
+            D, I = self.datastore.search(query_text, k)     # actual search
+            nearest_input = I[:,0]
+            #print("all nearest", I)
+            #print("the nearest input", nearest_input)
+            return nearest_input
+
+    train_retrieval_iterator = torch.utils.data.DataLoader(
+        TrainRetrievalDataset(train_sents),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    )
+
+    text_retrieval=TextRetrieval(train_retrieval_iterator)
+
+
+    #print(stop)
+    #print("")
+
+
     # print("len_sents", train_lens)
 
     class SADataset(Dataset):
@@ -97,7 +166,8 @@ def main():
         A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
         """
 
-        def __init__(self, sents_ids, lens, labels):
+        def __init__(self, sents_original, sents_ids, lens, labels):
+            self.sents_original = sents_original
             self.sents_ids = sents_ids
             self.lens = lens
             self.len_dataset = len(sents_ids)
@@ -110,7 +180,9 @@ def main():
             # print("self len data", self.len_dataset)
 
         def __getitem__(self, i):
-            return torch.tensor(self.sents_ids[i]).long(), torch.tensor(self.lens[i]).long(), torch.tensor(
+            bert_text = self.model.encode(self.sents_original[i][:MAX_LEN])
+
+            return bert_text, torch.tensor(self.sents_ids[i]).long(), torch.tensor(self.lens[i]).long(), torch.tensor(
                 self.labels[i], dtype=torch.float64)
 
         def __len__(self):
@@ -136,6 +208,26 @@ def main():
 
     print("train_sents_ids", train_labels)
     print("val_labels", val_labels)
+
+    #DEBUG
+    train_iterator = torch.utils.data.DataLoader(
+        SADataset(train_sents_ids, train_lens, train_labels),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    )
+
+    for i, (sent_bert, sents, lens, labels) in enumerate(train_iterator):
+        print("batch i", i)
+        print("sent_bert", sent_bert)
+        print("sents", sents)
+        print("len", lens)
+        print("labels", labels)
+
+        nearest_input = text_retrieval.retrieve_nearest_for_train_query(sents_bert)
+        print("nearest_input", nearest_input)
+        break
+    
+    #####
+
 
     train_iterator = torch.utils.data.DataLoader(
         SADataset(train_sents_ids, train_lens, train_labels),
@@ -354,8 +446,9 @@ def main():
             optimizer.zero_grad()
 
             text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
-            text = text[sort_ind]
-            label = label[sort_ind]            
+            text_lengths = text_lengths.to(device)
+            text = text[sort_ind].to(device)
+            label = label[sort_ind].to(device)            
             text= text.permute(1, 0)
           
             predictions = model(text, text_lengths).squeeze(1)
@@ -392,8 +485,9 @@ def main():
             for batch, (text, text_lengths, label) in enumerate(iterator):
                 # text, text_lengths = batch.text
                 text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
-                text = text[sort_ind]
-                label = label[sort_ind]
+                text_lengths = text_lengths.to(device)
+                text = text[sort_ind].to(device)
+                label = label[sort_ind].to(device)            
                 text= text.permute(1, 0)
 
                 predictions = model(text, text_lengths).squeeze(1)
