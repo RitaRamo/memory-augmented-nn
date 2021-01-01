@@ -646,7 +646,7 @@ def main():
             epoch_f1 += f1.item()
 
             if batch %5==0:
-                print(f'\tTrain Loss: {epoch_loss:.3f} | Train Acc: {epoch_acc * 100:.2f}% | Train f1-score {epoch_f1:.3f}')
+                print(f'\tTrain Loss: {(epoch_loss/ len(iterator)):.3f} | Train Acc: {(epoch_acc/ len(iterator)) * 100:.2f}% | Train f1-score {(epoch_f1/ len(iterator)):.3f}')
 
             #TODO: REMOVER
             #break
