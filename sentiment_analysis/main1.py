@@ -306,7 +306,7 @@ class SARModel(nn.Module):
         return self.fc(self.dropout(attn_output))
 
     def init_hidden_states(self, target_neighbors_representations):
-        init_hidden = torch.zeros(BATCH_SIZE, HIDDEN_DIM)
+        init_hidden = torch.zeros(BATCH_SIZE, HIDDEN_DIM).to(device)
 
         if MODEL_TYPE== "BASELINE":
             init_cell=  target_neighbors_representations
