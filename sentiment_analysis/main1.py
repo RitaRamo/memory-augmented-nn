@@ -139,6 +139,7 @@ class SARModel(nn.Module):
         super().__init__()
 
         self.vocab_size = vocab_size
+        self.embedding_dim = embedding_dim
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
         
@@ -195,7 +196,7 @@ class SARModel(nn.Module):
             print("loading fasttext embeddings")
 
             embeddings_matrix = np.zeros(
-                (self.vocab_size, self.embed_dim))
+                (self.vocab_size, self.embedding_dim))
 
             for word, id in self.token_to_id.items():
                 try:
