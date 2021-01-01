@@ -174,11 +174,34 @@ class SARModel(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-    # def prepare_hiddens(self,hiddens):
-    #     #the image features receive an affine transformation for this attention, before passing through Eq. 4,
-    #     # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
-    #     return self.linear_retrieval(hiddens)  # (batch_size, image_size*image_size, decoder_dim)
+        if DEBUG:
+            print("WITHOUT FASTEXT -> DEBUG")
+        else:
+            print("pretraining fastext")
+            #init embedding layer
+            fasttext_embeddings = fasttext.load_model('image_captioning/embeddings/wiki.en.bin')
+            pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings)
+            self.embedding.weight.data.copy_(
+                torch.from_numpy(pretrained_embeddings))
 
+            # pretrained embedings are not trainable by default
+            self.embedding.weight.requires_grad = False
+
+        def _get_fasttext_embeddings_matrix(self,embeddings):
+        # reduce the matrix of pretrained:embeddings according to dataset vocab
+            print("loading fasttext embeddings")
+
+            embeddings_matrix = np.zeros(
+                (self.vocab_size, self.embed_dim))
+
+            for word, id in self.token_to_id.items():
+                try:
+                    embeddings_matrix[id] = embeddings.get_word_vector(word)
+                except:
+                    print("How? Fastext has embedding for each token, hence this exception should not happen")
+                    pass
+
+            return embeddings_matrix
 
     def attention_multilevel(self, hiddens, final_hidden, retrieved_target):
         """
@@ -598,12 +621,12 @@ def main():
 
             retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(text_bert.numpy()) 
             target_neighbors=target_lookup[retrieved_neighbors_index]
-            print("target_neighbors", target_neighbors)
-            print("target_neighbors", target_representations)
+            #print("target_neighbors", target_neighbors)
+            #print("target_neighbors", target_representations)
 
             target_neighbors_representations = target_representations[target_neighbors]
-            print("target neighr represntations",target_neighbors_representations )
-            print("target neighr represntations",target_neighbors_representations.size())
+            #print("target neighr represntations",target_neighbors_representations )
+            #print("target neighr represntations",target_neighbors_representations.size())
 
             # text, text_lengths = batch.text
             text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
@@ -649,12 +672,12 @@ def main():
 
                 retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(text_bert.numpy()) 
                 target_neighbors=target_lookup[retrieved_neighbors_index]
-                print("target_neighbors", target_neighbors)
-                print("target_neighbors", target_representations)
+                #print("target_neighbors", target_neighbors)
+                #print("target_neighbors", target_representations)
 
                 target_neighbors_representations = target_representations[target_neighbors]
-                print("target neighr represntations",target_neighbors_representations )
-                print("target neighr represntations",target_neighbors_representations.size())
+                #print("target neighr represntations",target_neighbors_representations )
+                #print("target neighr represntations",target_neighbors_representations.size())
 
                 # text, text_lengths = batch.text
                 text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
