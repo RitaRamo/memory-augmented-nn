@@ -216,7 +216,9 @@ class SARModel(nn.Module):
        
         #the hidden features receive an affine transformation for this attention, before passing through Eq. 4,
         # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
+        print("hiddens", hiddens)
         hiddens= self.linear_retrieval(hiddens) 
+        print("hiddens with linear retrieval", hiddens)
 
         hiddens = hiddens.permute(1, 0, 2)
         att1 = self.hiddens_att(hiddens)  # (batch_size, num_hiddens(words), attention_dim)
@@ -224,23 +226,23 @@ class SARModel(nn.Module):
         att = self.full_att(self.tanh(att1 + att_h)).squeeze(2)  # (batch_size, num_hiddens(words), 1)
         alpha = self.softmax(att)  # (batch_size, num_hiddens(words),1)
         text_context = (hiddens * alpha.unsqueeze(-1)).sum(dim=1)  # (batch_size, hidden_dim)
-        #print("text context", text_context.size())
-        #print("retreive target", retrieved_target.size())
+        print("text context", text_context.size())
+        print("retreive target", retrieved_target.size())
 
         text_and_retrieved = torch.cat(([text_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
-        #print("text_and_retrieved", text_and_retrieved.size())
+        print("text_and_retrieved", text_and_retrieved.size())
 
         att_tr= self.cat_att(text_and_retrieved) #visual with retrieved target
-        #print("att_tr size", text_and_retrieved.size())
+        print("att_tr size", text_and_retrieved.size())
 
         att_hat = self.full_multiatt(self.tanh(att_tr + att_h)).squeeze(2)  # (batch_size, num_pixels)
-        #print("att_hat size", text_and_retrieved.size())
+        print("att_hat size", text_and_retrieved.size())
 
         alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
-        #print("alpha_hat size", alpha_hat.size())
+        print("alpha_hat size", alpha_hat.size())
 
         multilevel_context=(text_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
-        #print("multilevel contex", multilevel_context.size())
+        print("multilevel contex", multilevel_context.size())
         return multilevel_context, alpha_hat
 
     def attention_baseline(self, hiddens, final_hidden, retrieved_target=None):
@@ -334,7 +336,8 @@ class SARModel(nn.Module):
         return self.fc(self.dropout(attn_output))
 
     def init_hidden_states(self, target_neighbors_representations):
-        init_hidden = torch.zeros(BATCH_SIZE, HIDDEN_DIM).to(device)
+        batch_size= target_neighbors_representations.size()[0]
+        init_hidden = torch.zeros(batch_size, HIDDEN_DIM).to(device)
 
         if MODEL_TYPE== "BASELINE":
             init_cell=  target_neighbors_representations
@@ -470,12 +473,11 @@ def main():
         #passar essas frases com os ids pela layer embedding
         #do mean()
         print("entrei no SAR", )
-        train_sents_ids = torch.tensor(train_sents_ids)
-        print("torch size of train sets", train_sents_ids.size())
+        #train_sents_ids = torch.tensor(train_sents_ids)
 
-        train_labels=torch.tensor(train_labels)
-        train_neg_sents_ids=train_sents_ids[train_labels==0]
-        train_pos_sents_ids=train_sents_ids[train_labels==1]
+        #train_labels=torch.tensor(train_labels)
+        train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
+        train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
        
         negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
         pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
