@@ -138,6 +138,8 @@ class SARModel(nn.Module):
                     pad_idx):
         super().__init__()
 
+        self.vocab_size = vocab_size
+
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
         
         self.lstm = nn.LSTM(embedding_dim,
