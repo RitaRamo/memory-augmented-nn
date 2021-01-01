@@ -180,7 +180,7 @@ class SARModel(nn.Module):
         else:
             print("pretraining fastext")
             #init embedding layer
-            fasttext_embeddings = fasttext.load_model('image_captioning/embeddings/wiki.en.bin')
+            fasttext_embeddings = fasttext.load_model('../image_captioning/embeddings/wiki.en.bin')
             pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings)
             self.embedding.weight.data.copy_(
                 torch.from_numpy(pretrained_embeddings))
