@@ -154,8 +154,6 @@ class SARModel(nn.Module):
             retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
         elif MODEL_TYPE == "SAR_bert":
             retrieved_dim= 768 # retrieved target correspond to bert embeddings size
-        else:
-            raise Exception("unknown model")
 
         if MULTI_ATTENTION:
             print("using our multi attention")
