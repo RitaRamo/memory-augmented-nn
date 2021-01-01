@@ -45,9 +45,9 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_avg"
-MULTI_ATTENTION = True 
-DEBUG = True
+MODEL_TYPE="BASELINE"
+MULTI_ATTENTION = False 
+DEBUG = False
 
 class TrainRetrievalDataset(Dataset):
         """
