@@ -47,7 +47,7 @@ if __name__ == "__main__":
         scores = json.load(json_file)
 
     # get previous generated sentences to calculate bertscore according to refs
-    with open(generated_sentences_path + ".json") as json_file:
+    with open(generated_sentences_path) as json_file:
         generated_sentences = json.load(json_file)
 
     total_precision = 0.0
