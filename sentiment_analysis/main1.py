@@ -45,9 +45,9 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="BASELINE"
+MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = False 
-DEBUG = False
+DEBUG = True
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -488,9 +488,11 @@ def main():
         avg_pos_embedding=pos_embeddings.mean(0)
         print("torch size", avg_negs_embedding.size())
 
-        target_representations= torch.ones(2, EMBEDDING_DIM).to(device)
-        target_representations[0,:]= avg_negs_embedding
-        target_representations[1,:]= avg_negs_embedding
+        target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_negs_embedding.unsqueeze(0)), dim=0)
+        print("target repres", target_representations.size())
+        #target_representations= torch.ones(2, EMBEDDING_DIM).to(device)
+        #target_representations[0,:]= avg_negs_embedding
+        #target_representations[1,:]= avg_negs_embedding
 
         #print(stop)
 
@@ -651,7 +653,7 @@ def main():
             epoch_f1 += f1.item()
 
             if batch %5==0:
-                print(f'\tTrain Loss: {(epoch_loss/ len(iterator)):.3f} | Train Acc: {(epoch_acc/ len(iterator)) * 100:.4f}% | Train f1-score {(epoch_f1/ len(iterator)):.4f}')
+                print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {(epoch_f1/ (batch+1)):.4f}')
 
             #TODO: REMOVER
             #break
@@ -697,8 +699,7 @@ def main():
                 epoch_f1 += f1.item()
 
                 if batch %5==0:
-                    print(f'\VAL Loss: {epoch_loss:.3f} | VAL Acc: {epoch_acc * 100:.2f}% | VAL f1-score {epoch_f1:.3f}')
-
+                    print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | VAL f1-score {(epoch_f1/ (batch+1)):.4f}')
 
                 #TODO: REMOVER
                 #break
