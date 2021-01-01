@@ -27,7 +27,7 @@ if torch.cuda.is_available():
     torch.backends.cudnn.deterministic = True
 
 MAX_VOCAB_SIZE = 25000
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 MIN_FREQ_WORD = 5
 START_TOKEN = "<start>"
 END_TOKEN = "<end>"
@@ -724,6 +724,7 @@ def main():
 
     test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
+    print("Model Name", MODEL_TYPE)
     print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}% | Test f1-score {test_f1:.3f} ')
 
     #: 01 | Epoch Time: 0m 34s#
