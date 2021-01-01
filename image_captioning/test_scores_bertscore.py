@@ -78,9 +78,7 @@ if __name__ == "__main__":
     scores["avg_metrics"]["BertScore_P"] = total_precision / n_captions
     scores["avg_metrics"]["BertScore_R"] = total_recall / n_captions
     scores["avg_metrics"]["BertScore_F"] = total_f / n_captions
-
-    decoding_args = args.file_name + "_" + args.decodying_type + "_" + str(args.n_beam) + '_coco'
-
+    
     # save scores dict to a json
     with open(scores_path, 'w+') as f:
         json.dump(scores, f, indent=2)
