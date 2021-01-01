@@ -47,6 +47,7 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+DEBUG = False
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -54,8 +55,10 @@ class TrainRetrievalDataset(Dataset):
         """
 
         def __init__(self, train_sents):
-            #self.train_sents=train_sents
-            self.train_sents=train_sents[:10]
+            if DEBUG:
+                self.train_sents=train_sents[:10]
+            else:
+                self.train_sents=train_sents
             self.dataset_size = len(self.train_sents)
             self.model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
@@ -88,7 +91,7 @@ class TextRetrieval():
     def retrieve_nearest_for_train_query(self, query_text, k=2):
         #print("self query img", query_text)
         D, I = self.datastore.search(query_text, k)     # actual search
-        print("this is I", I)
+        #print("this is I", I)
         nearest_input = I[:,1]
         return nearest_input
 
@@ -112,7 +115,7 @@ class SADataset(Dataset):
             self.labels = labels
             self.model = SentenceTransformer('paraphrase-distilroberta-base-v1')
 
-            print("entrei no init", sents_ids)
+            # print("entrei no init", sents_ids)
             # print("self sents", self.sents)
             # print("self sents_tokens", self.sents_tokens)
             # print("self labels", self.labels)
@@ -196,23 +199,23 @@ class SARModel(nn.Module):
         att = self.full_att(self.tanh(att1 + att_h)).squeeze(2)  # (batch_size, num_hiddens(words), 1)
         alpha = self.softmax(att)  # (batch_size, num_hiddens(words),1)
         text_context = (hiddens * alpha.unsqueeze(-1)).sum(dim=1)  # (batch_size, hidden_dim)
-        print("text context", text_context.size())
-        print("retreive target", retrieved_target.size())
+        #print("text context", text_context.size())
+        #print("retreive target", retrieved_target.size())
 
         text_and_retrieved = torch.cat(([text_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
-        print("text_and_retrieved", text_and_retrieved.size())
+        #print("text_and_retrieved", text_and_retrieved.size())
 
         att_tr= self.cat_att(text_and_retrieved) #visual with retrieved target
-        print("att_tr size", text_and_retrieved.size())
+        #print("att_tr size", text_and_retrieved.size())
 
         att_hat = self.full_multiatt(self.tanh(att_tr + att_h)).squeeze(2)  # (batch_size, num_pixels)
-        print("att_hat size", text_and_retrieved.size())
+        #print("att_hat size", text_and_retrieved.size())
 
         alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
-        print("alpha_hat size", alpha_hat.size())
+        #print("alpha_hat size", alpha_hat.size())
 
         multilevel_context=(text_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
-        print("multilevel contex", multilevel_context.size())
+        #print("multilevel contex", multilevel_context.size())
         return multilevel_context, alpha_hat
 
     def attention_baseline(self, hiddens, final_hidden, retrieved_target=None):
@@ -321,11 +324,11 @@ class SARModel(nn.Module):
         else:
             raise Exception("that model does not exist")
 
-        print("torch init hidden", init_hidden)
-        print("torch init hidden", init_hidden.size())
+        #print("torch init hidden", init_hidden)
+        #print("torch init hidden", init_hidden.size())
 
-        print("torch init init_cell", init_cell)
-        print("torch init init_cell", init_cell.size())
+        #print("torch init init_cell", init_cell)
+        #print("torch init init_cell", init_cell.size())
 
         return init_hidden.unsqueeze(0), init_cell.unsqueeze(0)
 
@@ -345,9 +348,9 @@ def main():
     with open(DATA_FOLDER+'test_labels.json', 'r') as j:
         test_labels = json.load(j)
 
-    print("train sets in beging", len(train_sents))
+    #print("train sets in beging", len(train_sents))
     train_sents, val_sents, train_labels, val_labels = train_test_split(train_sents,train_labels, test_size=0.1, random_state=42)
-    print("train sets after", len(train_sents))
+    #print("train sets after", len(train_sents))
 
     train_words = " ".join(train_sents).split()
     words_counter = Counter(train_words)
@@ -399,7 +402,7 @@ def main():
     sents_with_tokens = [text.split() for text in train_sents]
     train_sents_ids, train_lens = convert_sent_tokens_to_ids(sents_with_tokens, MAX_LEN, token_to_id)
 
-    print("train_sents_ids", len(train_sents_ids))
+    #print("train_sents_ids", len(train_sents_ids))
 
     val_sents_with_tokens = [text.split() for text in val_sents]
     val_sents_ids, val_lens = convert_sent_tokens_to_ids(val_sents_with_tokens, MAX_LEN, token_to_id)
@@ -408,7 +411,7 @@ def main():
     test_sents_ids, test_lens = convert_sent_tokens_to_ids(test_sents_with_tokens, MAX_LEN, token_to_id)
 
 
-    print("INPUT sents", train_sents_ids)
+    #print("INPUT sents", train_sents_ids)
 
 
     #print("train sents", train_sents[:10])
@@ -631,7 +634,7 @@ def main():
             epoch_f1 += f1.item()
 
             #TODO: REMOVER
-            break
+            #break
 
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
@@ -674,7 +677,7 @@ def main():
                 epoch_f1 += f1.item()
 
                 #TODO: REMOVER
-                break
+                #break
 
         return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
 
@@ -690,10 +693,10 @@ def main():
 
     for epoch in range(N_EPOCHS):
 
-        if counter_without_improvement == 20:
+        if counter_without_improvement == 12:
             break
 
-        if counter_without_improvement > 0 and counter_without_improvement % 8 == 0:
+        if counter_without_improvement > 0 and counter_without_improvement % 5 == 0:
             adjust_learning_rate(optimizer, 0.8)
 
         start_time = time.time()
@@ -715,7 +718,7 @@ def main():
         print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
         print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}% | Train f1-score {train_f1:.3f}')
         print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}% | Val. f1-score {valid_f1:.3f}')
-        break
+        #break
 
     model.load_state_dict(torch.load('tut2-model.pt'))
 
