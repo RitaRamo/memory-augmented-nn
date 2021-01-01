@@ -1,12 +1,7 @@
 import json
 
-from args_parser import get_args
-
 from collections import defaultdict
 from bert_score import BERTScorer
-from utils.enums import EvalDatasetType
-
-from definitions_datasets import get_dataset_paths, get_test_path, PATH_EVALUATION_SENTENCES, PATH_EVALUATION_SCORES
 
 MODEL = "SAR_bert"
 MULTILEVEL_ATTENTION =True
