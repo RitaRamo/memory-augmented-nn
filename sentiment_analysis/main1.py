@@ -36,9 +36,6 @@ UNK_TOKEN = "<unk>"
 PAD_TOKEN = "<pad>"
 MAX_LEN = 500
 DATA_FOLDER="dataset_splits/" #""
-MODEL_TYPE="BASELINE"
-MULTI_ATTENTION = False 
-
 EMBEDDING_DIM = 300
 HIDDEN_DIM = 512
 OUTPUT_DIM = 1
@@ -48,7 +45,9 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-DEBUG = False
+MODEL_TYPE="SAR_avg"
+MULTI_ATTENTION = True 
+DEBUG = True
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -146,19 +145,21 @@ class SARModel(nn.Module):
 
         print("Model Name", MODEL_TYPE)
 
+        if MODEL_TYPE == "SAR_-11":
+            retrieved_dim= hidden_dim
+        elif MODEL_TYPE == "SAR_avg":
+            retrieved_dim= embedding_dim # retrieved target correspond to avg word embeddings from caption
+            self.init_c = nn.Linear(retrieved_dim, hidden_dim)
+        elif MODEL_TYPE == "SAR_norm":
+            retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
+        elif MODEL_TYPE == "SAR_bert":
+            retrieved_dim= 768 # retrieved target correspond to bert embeddings size
+        else:
+            raise Exception("unknown model")
+
         if MULTI_ATTENTION:
             print("using our multi attention")
             self.attention = self.attention_multilevel  # proposed attention network
-            if MODEL_TYPE == "SAR_-11":
-                retrieved_dim= hidden_dim
-            elif MODEL_TYPE == "SAR_avg":
-                retrieved_dim= embedding_dim # retrieved target correspond to avg word embeddings from caption
-            elif MODEL_TYPE == "SAR_norm":
-                retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
-            elif MODEL_TYPE == "SAR_bert":
-                retrieved_dim= 768 # retrieved target correspond to bert embeddings size
-            else:
-                raise Exception("unknown model")
             self.linear_retrieval = nn.Linear(hidden_dim, retrieved_dim)
             self.cat_att = nn.Linear(retrieved_dim, attention_dim)
             self.full_multiatt = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
@@ -454,6 +455,7 @@ def main():
     text_retrieval=TextRetrieval(train_retrieval_iterator)
     target_lookup = torch.tensor(train_labels)
 
+    print("loading the two representations for the binary targets")
     if MODEL_TYPE == "BASELINE":
         # the baseline does not have retrieved target
         #it is just for code coherence in respect to SAR Model that needs it for the lstm init states
@@ -477,9 +479,8 @@ def main():
         train_neg_sents_ids=train_sents_ids[train_labels==0]
         train_pos_sents_ids=train_sents_ids[train_labels==1]
        
-        print("try to add embeddings")
-        negs_embeddings=model.embedding(train_neg_sents_ids.long())
-        pos_embeddings=model.embedding(train_pos_sents_ids.long())
+        negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
+        pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
 
         print("neg embeddings size", negs_embeddings.size())
 
@@ -487,9 +488,11 @@ def main():
         avg_pos_embedding=pos_embeddings.mean(0)
         print("torch size", avg_negs_embedding.size())
 
-        target_representations= [avg_negs_embedding, avg_pos_embedding]
+        target_representations= torch.ones(2, EMBEDDING_DIM).to(device)
+        target_representations[0,:]= avg_negs_embedding
+        target_representations[1,:]= avg_negs_embedding
 
-        print(stop)
+        #print(stop)
 
     else:
         raise Exception("Unknown model")
@@ -628,7 +631,7 @@ def main():
             text= text.permute(1, 0)
           
             #TODO: init_hidden_states():
-            predictions = model(text, text_lengths, target_neighbors_representations)
+            predictions = model(text, text_lengths, target_neighbors_representations).squeeze(1)
 
             #print("labels", label)
             #print("labels long", label.long())
