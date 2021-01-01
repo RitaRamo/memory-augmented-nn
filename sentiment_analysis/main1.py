@@ -144,6 +144,8 @@ class SARModel(nn.Module):
                             hidden_dim,
                             num_layers=n_layers)
 
+        print("Model Name", MODEL_TYPE)
+
         if MULTI_ATTENTION:
             print("using our multi attention")
             self.attention = self.attention_multilevel  # proposed attention network
@@ -626,7 +628,7 @@ def main():
             text= text.permute(1, 0)
           
             #TODO: init_hidden_states():
-            predictions = model(text, text_lengths, target_neighbors_representations).squeeze(1)
+            predictions = model(text, text_lengths, target_neighbors_representations)
 
             #print("labels", label)
             #print("labels long", label.long())
@@ -646,7 +648,7 @@ def main():
             epoch_f1 += f1.item()
 
             if batch %5==0:
-                print(f'\tTrain Loss: {(epoch_loss/ len(iterator)):.3f} | Train Acc: {(epoch_acc/ len(iterator)) * 100:.2f}% | Train f1-score {(epoch_f1/ len(iterator)):.3f}')
+                print(f'\tTrain Loss: {(epoch_loss/ len(iterator)):.3f} | Train Acc: {(epoch_acc/ len(iterator)) * 100:.4f}% | Train f1-score {(epoch_f1/ len(iterator)):.4f}')
 
             #TODO: REMOVER
             #break
@@ -735,8 +737,8 @@ def main():
             counter_without_improvement += 1
 
         print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:.2f}% | Train f1-score {train_f1:.3f}')
-        print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc * 100:.2f}% | Val. f1-score {valid_f1:.3f}')
+        print(f'\tTrain Loss: {train_loss:.4f} | Train Acc: {train_acc * 100:.4f}% | Train f1-score {train_f1:.4f}')
+        print(f'\t Val. Loss: {valid_loss:.4f} |  Val. Acc: {valid_acc * 100:.4f}% | Val. f1-score {valid_f1:.4f}')
         #break
 
     model.load_state_dict(torch.load('tut2-model.pt'))
@@ -744,8 +746,8 @@ def main():
     test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
     print("Model Name", MODEL_TYPE)
-    print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc * 100:.2f}% | Test f1-score {test_f1:.3f} ')
-
+    print(f'Test Loss: {test_loss:.4f} | Test Acc: {test_acc * 100:.4f}% | Test f1-score {test_f1:.4f} ')
+    print("Test entire value", test_acc, test_f1)
     #: 01 | Epoch Time: 0m 34s#
     #	Train Loss: 0.666 | Train Acc: 59.25% | Train f1-score 0.528
     #	 Val. Loss: 0.783 |  Val. Acc: 53.55% | Val. f1-score 0.167
