@@ -43,8 +43,6 @@ if __name__ == "__main__":
         dict_imageid_refs[image_id].append(caption)
 
     # get previous score of coco metrics (bleu,meteor,etc) to append bert_score
-    scores_path = PATH_EVALUATION_SCORES + decoding_args
-
     with open(scores_path + '.json') as json_file:
         scores = json.load(json_file)
 
