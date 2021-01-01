@@ -82,5 +82,5 @@ if __name__ == "__main__":
     decoding_args = args.file_name + "_" + args.decodying_type + "_" + str(args.n_beam) + '_coco'
 
     # save scores dict to a json
-    with open(scores_path + '.json', 'w+') as f:
+    with open(scores_path, 'w+') as f:
         json.dump(scores, f, indent=2)
