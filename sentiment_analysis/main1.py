@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from sentence_transformers import SentenceTransformer
 import faiss
+import fasttext
 
 seed = 1234
 
@@ -573,19 +574,6 @@ def main():
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print(f'The model has {count_parameters(model):,} trainable parameters')
-
-    # pretrained_embeddings = TEXT.vocab.vectors
-
-    # print(pretrained_embeddings.shape)
-
-    # model.embedding.weight.data.copy_(pretrained_embeddings)
-
-    # UNK_IDX = TEXT.vocab.stoi[TEXT.unk_token]
-
-    # model.embedding.weight.data[UNK_IDX] = torch.zeros(EMBEDDING_DIM)
-    # model.embedding.weight.data[PAD_IDX] = torch.zeros(EMBEDDING_DIM)
-
-    # print(model.embedding.weight.data)
 
     optimizer = optim.Adam(model.parameters())
 
