@@ -35,7 +35,8 @@ UNK_TOKEN = "<unk>"
 PAD_TOKEN = "<pad>"
 MAX_LEN = 500
 DATA_FOLDER="dataset_splits/" #""
-MODEL_TYPE="SAR_avg"
+MODEL_TYPE="SAR_-11"
+MULTI_ATTENTION = True 
 
 EMBEDDING_DIM = 300
 HIDDEN_DIM = 512
@@ -43,19 +44,8 @@ OUTPUT_DIM = 1
 ATTENTION_DIM = 512
 N_LAYERS = 1
 DROPOUT = 0.5
-device = "cpu"
-#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-#targets: captions nº de cada imagem;
-#lookup table: captions
-#id do nearest  captions[id_nearest] -> caption -> representar
-
-#sentiment analysis:
-# id do nearest texts  -> 5º
-# lookup table com os targets : SER TODAS AS LABELS  train_labels [0,0,1,1,0,0,0]
-# targets[id nearest text] -> labels
-# representações =[1º label, 2º label]
-# labels[0,1]
+#device = "cpu"
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class TrainRetrievalDataset(Dataset):
@@ -145,11 +135,32 @@ class SARModel(nn.Module):
         super().__init__()
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
-
-        self.rnn = nn.LSTM(embedding_dim,
+        
+        self.lstm = nn.LSTM(embedding_dim,
                             hidden_dim,
                             num_layers=n_layers)
 
+        if MULTI_ATTENTION:
+            print("using our multi attention")
+            self.attention = self.attention_multilevel  # proposed attention network
+            if MODEL_TYPE == "SAR_-11":
+                retrieved_dim= hidden_dim
+            elif MODEL_TYPE == "SAR_avg":
+                retrieved_dim= embedding_dim # retrieved target correspond to avg word embeddings from caption
+            elif MODEL_TYPE == "SAR_norm":
+                retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
+            elif MODEL_TYPE == "SAR_bert":
+                retrieved_dim= 768 # retrieved target correspond to bert embeddings size
+            else:
+                raise Exception("unknown model")
+            self.linear_retrieval = nn.Linear(hidden_dim, retrieved_dim)
+            self.cat_att = nn.Linear(retrieved_dim, attention_dim)
+            self.full_multiatt = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+
+        else: #baseline attention
+            print("default attention")
+            self.attention = self.attention_baseline
+ 
         self.fc = nn.Linear(attention_dim, output_dim)
 
         self.dropout = nn.Dropout(dropout)
@@ -160,31 +171,55 @@ class SARModel(nn.Module):
         self.tanh = nn.Tanh()
         self.softmax = nn.Softmax(dim=1)  # softmax layer to calculate weights
 
-    #    def attention(self, lstm_output, final_state):
-    #        #lstm_output1 torch.Size([144, 64, 512])
-    #
-    #       lstm_output = lstm_output.permute(1, 0, 2)
-    #        #lstm_output2 torch.Size([64, 144, 512])
-    #
-    #        merged_state = torch.cat([s for s in final_state], 1)
-    #        #merged_state1 torch.Size([64, 512])
-    #
-    #        merged_state = merged_state.squeeze(0).unsqueeze(2)
-    #        #merged_state2 torch.Size([64, 512, 1])
-    #
-    #        weights = torch.bmm(lstm_output, merged_state)
-    #        #weights1 torch.Size([64, 144, 1])
-    #        weights = F.softmax(weights.squeeze(2)).unsqueeze(2)
-    #        #weights2 torch.Size([64, 144, 1])
-    #        #torch.bmm(torch.transpose(lstm_output, 1, 2), weights) torch.Size([64, 512, 1])
-    #        #torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2) torch.Size([64, 512])
-    #        return torch.bmm(torch.transpose(lstm_output, 1, 2), weights).squeeze(2)
+    # def prepare_hiddens(self,hiddens):
+    #     #the image features receive an affine transformation for this attention, before passing through Eq. 4,
+    #     # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
+    #     return self.linear_retrieval(hiddens)  # (batch_size, image_size*image_size, decoder_dim)
 
-    def attention(self, hiddens, final_hidden):
+
+    def attention_multilevel(self, hiddens, final_hidden, retrieved_target):
         """
         Forward propagation.
-        :param encoder_out: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
-        :param decoder_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
+
+        :param hiddens: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        :param final_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
+        :return: attention weighted encoding, weights
+        """
+       
+        #the hidden features receive an affine transformation for this attention, before passing through Eq. 4,
+        # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
+        hiddens= self.linear_retrieval(hiddens) 
+
+        hiddens = hiddens.permute(1, 0, 2)
+        att1 = self.hiddens_att(hiddens)  # (batch_size, num_hiddens(words), attention_dim)
+        att_h = self.final_hidden_att(final_hidden.permute(1, 0, 2))  # (batch_size, 1, attention_dim)
+        att = self.full_att(self.tanh(att1 + att_h)).squeeze(2)  # (batch_size, num_hiddens(words), 1)
+        alpha = self.softmax(att)  # (batch_size, num_hiddens(words),1)
+        text_context = (hiddens * alpha.unsqueeze(-1)).sum(dim=1)  # (batch_size, hidden_dim)
+        print("text context", text_context.size())
+        print("retreive target", retrieved_target.size())
+
+        text_and_retrieved = torch.cat(([text_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
+        print("text_and_retrieved", text_and_retrieved.size())
+
+        att_tr= self.cat_att(text_and_retrieved) #visual with retrieved target
+        print("att_tr size", text_and_retrieved.size())
+
+        att_hat = self.full_multiatt(self.tanh(att_tr + att_h)).squeeze(2)  # (batch_size, num_pixels)
+        print("att_hat size", text_and_retrieved.size())
+
+        alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
+        print("alpha_hat size", alpha_hat.size())
+
+        multilevel_context=(text_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
+        print("multilevel contex", multilevel_context.size())
+        return multilevel_context, alpha_hat
+
+    def attention_baseline(self, hiddens, final_hidden, retrieved_target=None):
+        """
+        Forward propagation.
+        :param hiddens: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
+        :param final_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
         :return: attention weighted encoding, weights
         """
         # lstm_output = lstm_output.permute(1, 0, 2)
@@ -212,7 +247,7 @@ class SARModel(nn.Module):
 
         return attention_weighted_encoding, alpha
 
-    def forward(self, text, text_lengths):
+    def forward(self, text, text_lengths, target_neighbors_representations):
         # text = [sent len, batch size]
 
         # tamanho do texto, tamanho do batch
@@ -229,7 +264,10 @@ class SARModel(nn.Module):
         #print("packed embedded", packed_embedded)
         #print('packed_embedded', packed_embedded.data.size())
 
-        packed_output, (hidden, cell) = self.rnn(packed_embedded)
+        init_hidden, init_cell = self.init_hidden_states(target_neighbors_representations)
+
+        packed_output, (hidden, cell) = self.lstm(packed_embedded, (init_hidden, init_cell))
+
         # packed_output torch.Size([9152, 512])
         #print("packed output", packed_output)
         #print('packed_output', packed_output.data.size())
@@ -258,13 +296,38 @@ class SARModel(nn.Module):
         # concat the final forward (hidden[-2,:,:]) and backward (hidden[-1,:,:]) hidden layers
         # and apply dropout
 
-        attn_output, alpha = self.attention(output, hidden)
+        attn_output, alpha = self.attention(output, hidden, target_neighbors_representations)
+
         # attn_output torch.Size([64, 512])
         # hidden = [batch size, hid dim * num directions]
         # self.fc(attn_output) torch.Size([64, 1])
         #print('attn_output', attn_output.size())
         #print('self.fc(self.dropout(attn_output)', self.fc(self.dropout(attn_output)).size())
         return self.fc(self.dropout(attn_output))
+
+    def init_hidden_states(self, target_neighbors_representations):
+        init_hidden = torch.zeros(BATCH_SIZE, HIDDEN_DIM)
+
+        if MODEL_TYPE== "BASELINE":
+            init_cell=  target_neighbors_representations
+
+        elif MODEL_TYPE== "SAR_-11":
+            #already has dimension of the LSTM
+            init_cell= target_neighbors_representations
+
+        elif MODEL_TYPE== "SAR_avg":
+            init_cell = self.init_c(target_neighbors_representations)
+
+        else:
+            raise Exception("that model does not exist")
+
+        print("torch init hidden", init_hidden)
+        print("torch init hidden", init_hidden.size())
+
+        print("torch init init_cell", init_cell)
+        print("torch init init_cell", init_cell.size())
+
+        return init_hidden.unsqueeze(0), init_cell.unsqueeze(0)
 
 
 #################################################DATA#####################################################
@@ -282,8 +345,9 @@ def main():
     with open(DATA_FOLDER+'test_labels.json', 'r') as j:
         test_labels = json.load(j)
 
-
+    print("train sets in beging", len(train_sents))
     train_sents, val_sents, train_labels, val_labels = train_test_split(train_sents,train_labels, test_size=0.1, random_state=42)
+    print("train sets after", len(train_sents))
 
     train_words = " ".join(train_sents).split()
     words_counter = Counter(train_words)
@@ -293,14 +357,14 @@ def main():
 
     vocab = [PAD_TOKEN, START_TOKEN, END_TOKEN, UNK_TOKEN] + words
     # print("vocab", vocab)
-    print("vocab", len(vocab))
+    #print("vocab", len(vocab))
 
     token_to_id = OrderedDict([(value, index)
                                for index, value in enumerate(vocab)])
     id_to_token = OrderedDict([(index, value)
                                for index, value in enumerate(vocab)])
 
-    print("token_to_id", token_to_id)
+    #print("token_to_id", token_to_id)
 
     model = SARModel(len(vocab),
                      EMBEDDING_DIM,
@@ -335,6 +399,8 @@ def main():
     sents_with_tokens = [text.split() for text in train_sents]
     train_sents_ids, train_lens = convert_sent_tokens_to_ids(sents_with_tokens, MAX_LEN, token_to_id)
 
+    print("train_sents_ids", len(train_sents_ids))
+
     val_sents_with_tokens = [text.split() for text in val_sents]
     val_sents_ids, val_lens = convert_sent_tokens_to_ids(val_sents_with_tokens, MAX_LEN, token_to_id)
 
@@ -358,37 +424,56 @@ def main():
     text_retrieval=TextRetrieval(train_retrieval_iterator)
     target_lookup = torch.tensor(train_labels)
 
-    if MODEL_TYPE== "SAR_-11":
-        target_neighbors_representations= [-1*torch.ones(BATCH_SIZE, EMBEDDING_DIM).to(device), torch.ones(BATCH_SIZE, EMBEDDING_DIM).to(device)]
-        print("funcou", stop)
-    elif MODEL_TYPE== "SAR_avg":
+    if MODEL_TYPE == "BASELINE":
+        # the baseline does not have retrieved target
+        #it is just for code coherence in respect to SAR Model that needs it for the lstm init states
+        target_representations= torch.zeros(2, HIDDEN_DIM).to(device)
+
+    elif MODEL_TYPE== "SAR_-11":
+        target_representations= torch.ones(2, HIDDEN_DIM).to(device)
+        target_representations[0,:] = -1.0 
+        #target representations is a vector of either -1 or 1s
+        #torch.tensor([-1*torch.ones(BATCH_SIZE, HIDDEN_DIM), torch.ones(BATCH_SIZE, HIDDEN_DIM)]).to(device)
+   
+    elif MODEL_TYPE == "SAR_avg":
         #temos de ter todas as frases negativas
         #passar essas frases com os ids pela layer embedding
         #do mean()
+        print("entrei no SAR", )
         train_sents_ids = torch.tensor(train_sents_ids)
+        print("torch size of train sets", train_sents_ids.size())
+
         train_labels=torch.tensor(train_labels)
         train_neg_sents_ids=train_sents_ids[train_labels==0]
         train_pos_sents_ids=train_sents_ids[train_labels==1]
        
-        negs_embedding=model.embedding(train_neg_sents_ids.long())
+        print("try to add embeddings")
+        negs_embeddings=model.embedding(train_neg_sents_ids.long())
         pos_embeddings=model.embedding(train_pos_sents_ids.long())
 
-        avg_negs_embedding=negs_embedding.mean(-1)
-        avg_pos_embedding=pos_embedding.mean(-1)
+        print("neg embeddings size", negs_embeddings.size())
 
-        target_neighbors_representations= [avg_negs_embedding, avg_pos_embedding]
+        avg_negs_embedding=negs_embeddings.mean(1).mean(0)
+        avg_pos_embedding=pos_embeddings.mean(0)
+        print("torch size", avg_negs_embedding.size())
 
-        #TODO: confirm train sents should be less than 25000?
+        target_representations= [avg_negs_embedding, avg_pos_embedding]
+
         print(stop)
-    
-    elif MODEL_TYPE== "SAR_norm":
-        train_sents_ids = torch.tensor(train_sents_ids)
-        train_labels=torch.tensor(train_labels)
-        train_neg_sents_ids=train_sents_ids[train_labels==0]
-        train_pos_sents_ids=train_sents_ids[train_labels==1]
 
-        negs_embedding=model.embedding(train_neg_sents_ids.long())
-        pos_embeddings=model.embedding(train_pos_sents_ids.long())
+    else:
+        raise Exception("Unknown model")
+    
+    # elif MODEL_TYPE== "SAR_norm":
+    #     train_sents_ids = torch.tensor(train_sents_ids)
+    #     train_labels=torch.tensor(train_labels)
+    #     train_neg_sents_ids=train_sents_ids[train_labels==0]
+    #     train_pos_sents_ids=train_sents_ids[train_labels==1]
+
+    #     negs_embedding=model.embedding(train_neg_sents_ids.long())
+    #     pos_embeddings=model.embedding(train_pos_sents_ids.long())
+
+
 
         #SIMILAR IDEA
 
@@ -510,15 +595,23 @@ def main():
 
             retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(text_bert.numpy()) 
             target_neighbors=target_lookup[retrieved_neighbors_index]
+            print("target_neighbors", target_neighbors)
+            print("target_neighbors", target_representations)
+
+            target_neighbors_representations = target_representations[target_neighbors]
+            print("target neighr represntations",target_neighbors_representations )
+            print("target neighr represntations",target_neighbors_representations.size())
+
             # text, text_lengths = batch.text
             text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
             text_lengths = text_lengths.to(device)
             text = text[sort_ind].to(device)
             label = label[sort_ind].to(device)       
-            target_neighbors = target_neighbors[sort_ind].to(device)     
+            target_neighbors_representations = target_neighbors_representations[sort_ind].to(device) 
             text= text.permute(1, 0)
           
-            predictions = model(text, text_lengths).squeeze(1)
+            #TODO: init_hidden_states():
+            predictions = model(text, text_lengths, target_neighbors_representations).squeeze(1)
 
             #print("labels", label)
             #print("labels long", label.long())
@@ -551,17 +644,24 @@ def main():
         with torch.no_grad():
             for batch, (text_bert, text, text_lengths, label) in enumerate(iterator):
 
-                retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_val_or_test_query(text_bert.numpy()) 
+                retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(text_bert.numpy()) 
                 target_neighbors=target_lookup[retrieved_neighbors_index]
+                print("target_neighbors", target_neighbors)
+                print("target_neighbors", target_representations)
+
+                target_neighbors_representations = target_representations[target_neighbors]
+                print("target neighr represntations",target_neighbors_representations )
+                print("target neighr represntations",target_neighbors_representations.size())
+
                 # text, text_lengths = batch.text
                 text_lengths, sort_ind = text_lengths.sort(dim=0, descending=True)
                 text_lengths = text_lengths.to(device)
                 text = text[sort_ind].to(device)
                 label = label[sort_ind].to(device)       
-                target_neighbors = target_neighbors[sort_ind].to(device)     
+                target_neighbors_representations = target_neighbors_representations[sort_ind].to(device) 
                 text= text.permute(1, 0)
-
-                predictions = model(text, text_lengths).squeeze(1)
+          
+                predictions = model(text, text_lengths, target_neighbors_representations).squeeze(1)
 
                 loss = criterion(predictions, label)
 
