@@ -45,9 +45,9 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_avg"
-MULTI_ATTENTION = True 
-DEBUG = True
+MODEL_TYPE="BASELINE"
+MULTI_ATTENTION = False 
+DEBUG = False
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -162,14 +162,13 @@ class SARModel(nn.Module):
             self.hiddens_att = nn.Linear(retrieved_dim, attention_dim)  # linear layer to transform hidden states
             self.cat_att = nn.Linear(retrieved_dim, attention_dim)
             self.full_multiatt = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
+            self.fc = nn.Linear(retrieved_dim, output_dim)
 
         else: #baseline attention
             print("default attention")
             self.attention = self.attention_baseline
             self.hiddens_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform hidden states
-
- 
-        self.fc = nn.Linear(attention_dim, output_dim)
+            self.fc = nn.Linear(hidden_dim, output_dim)
 
         self.dropout = nn.Dropout(dropout)
         ############Attention###########
@@ -218,9 +217,9 @@ class SARModel(nn.Module):
        
         #the hidden features receive an affine transformation for this attention, before passing through Eq. 4,
         # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
-        print("hiddens", hiddens.size())
+        #print("hiddens", hiddens.size())
         hiddens= self.linear_retrieval(hiddens)  #hiddens->retrieved dim
-        print("hiddens with linear retrieval", hiddens.size())
+        #print("hiddens with linear retrieval", hiddens.size())
 
         hiddens = hiddens.permute(1, 0, 2)
         att1 = self.hiddens_att(hiddens)  # (batch_size, num_hiddens(words), attention_dim)
@@ -228,23 +227,23 @@ class SARModel(nn.Module):
         att = self.full_att(self.tanh(att1 + att_h)).squeeze(2)  # (batch_size, num_hiddens(words), 1)
         alpha = self.softmax(att)  # (batch_size, num_hiddens(words),1)
         text_context = (hiddens * alpha.unsqueeze(-1)).sum(dim=1)  # (batch_size, hidden_dim)
-        print("text context", text_context.size())
-        print("retreive target", retrieved_target.size())
+        #print("text context", text_context.size())
+        #print("retreive target", retrieved_target.size())
 
         text_and_retrieved = torch.cat(([text_context.unsqueeze(1), retrieved_target.unsqueeze(1)]), dim=1)
-        print("text_and_retrieved", text_and_retrieved.size())
+        #print("text_and_retrieved", text_and_retrieved.size())
 
         att_tr= self.cat_att(text_and_retrieved) #visual with retrieved target
-        print("att_tr size", text_and_retrieved.size())
+        #print("att_tr size", text_and_retrieved.size())
 
         att_hat = self.full_multiatt(self.tanh(att_tr + att_h)).squeeze(2)  # (batch_size, num_pixels)
-        print("att_hat size", text_and_retrieved.size())
+        #print("att_hat size", text_and_retrieved.size())
 
         alpha_hat = self.softmax(att_hat)  # (batch_size, num_pixels)
-        print("alpha_hat size", alpha_hat.size())
+        #print("alpha_hat size", alpha_hat.size())
 
         multilevel_context=(text_and_retrieved * alpha_hat.unsqueeze(2)).sum(dim=1)
-        print("multilevel contex", multilevel_context.size())
+        #print("multilevel contex", multilevel_context.size())
         return multilevel_context, alpha_hat
 
     def attention_baseline(self, hiddens, final_hidden, retrieved_target=None):
