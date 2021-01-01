@@ -45,9 +45,9 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="BASELINE"
-MULTI_ATTENTION = False 
-DEBUG = False
+MODEL_TYPE="SAR_avg"
+MULTI_ATTENTION = True 
+DEBUG = True
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -159,18 +159,20 @@ class SARModel(nn.Module):
             print("using our multi attention")
             self.attention = self.attention_multilevel  # proposed attention network
             self.linear_retrieval = nn.Linear(hidden_dim, retrieved_dim)
+            self.hiddens_att = nn.Linear(retrieved_dim, attention_dim)  # linear layer to transform hidden states
             self.cat_att = nn.Linear(retrieved_dim, attention_dim)
             self.full_multiatt = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
 
         else: #baseline attention
             print("default attention")
             self.attention = self.attention_baseline
+            self.hiddens_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform hidden states
+
  
         self.fc = nn.Linear(attention_dim, output_dim)
 
         self.dropout = nn.Dropout(dropout)
         ############Attention###########
-        self.hiddens_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform hidden states
         self.final_hidden_att = nn.Linear(hidden_dim, attention_dim)  # linear layer to transform last hidden state
         self.full_att = nn.Linear(attention_dim, 1)  # linear layer to calculate values to be softmax-ed
         self.tanh = nn.Tanh()
@@ -216,9 +218,9 @@ class SARModel(nn.Module):
        
         #the hidden features receive an affine transformation for this attention, before passing through Eq. 4,
         # to ensure that it has the same dimension of the retrieved target in order to compute Eq. 9 (combine both)
-        print("hiddens", hiddens)
-        hiddens= self.linear_retrieval(hiddens) 
-        print("hiddens with linear retrieval", hiddens)
+        print("hiddens", hiddens.size())
+        hiddens= self.linear_retrieval(hiddens)  #hiddens->retrieved dim
+        print("hiddens with linear retrieval", hiddens.size())
 
         hiddens = hiddens.permute(1, 0, 2)
         att1 = self.hiddens_att(hiddens)  # (batch_size, num_hiddens(words), attention_dim)
@@ -652,7 +654,7 @@ def main():
             epoch_acc += acc.item()
             epoch_f1 += f1.item()
 
-            if batch %5==0:
+            if batch %20==0:
                 print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {(epoch_f1/ (batch+1)):.4f}')
 
             #TODO: REMOVER
@@ -698,7 +700,7 @@ def main():
                 epoch_acc += acc.item()
                 epoch_f1 += f1.item()
 
-                if batch %5==0:
+                if batch %20==0:
                     print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | VAL f1-score {(epoch_f1/ (batch+1)):.4f}')
 
                 #TODO: REMOVER
