@@ -188,7 +188,7 @@ class SARModel(nn.Module):
             # pretrained embedings are not trainable by default
             self.embedding.weight.requires_grad = False
 
-        def _get_fasttext_embeddings_matrix(self,embeddings):
+    def _get_fasttext_embeddings_matrix(self,embeddings):
         # reduce the matrix of pretrained:embeddings according to dataset vocab
             print("loading fasttext embeddings")
 
