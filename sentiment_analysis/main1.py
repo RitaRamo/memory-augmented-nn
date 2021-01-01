@@ -135,11 +135,8 @@ class SADataset(Dataset):
 
 class SARModel(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_dim, output_dim, attention_dim, n_layers, dropout,
-                    pad_idx):
+                    pad_idx, token_to_id):
         super().__init__()
-
-        self.vocab_size = vocab_size
-        self.embedding_dim = embedding_dim
 
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=pad_idx)
         
@@ -184,21 +181,21 @@ class SARModel(nn.Module):
             print("pretraining fastext")
             #init embedding layer
             fasttext_embeddings = fasttext.load_model('../image_captioning/embeddings/wiki.en.bin')
-            pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings)
+            pretrained_embeddings = self._get_fasttext_embeddings_matrix(fasttext_embeddings, vocab_size, embedding_dim, token_to_id)
             self.embedding.weight.data.copy_(
                 torch.from_numpy(pretrained_embeddings))
 
             # pretrained embedings are not trainable by default
             self.embedding.weight.requires_grad = False
 
-    def _get_fasttext_embeddings_matrix(self,embeddings):
+    def _get_fasttext_embeddings_matrix(self,embeddings, vocab_size, embedding_dim, token_to_id):
         # reduce the matrix of pretrained:embeddings according to dataset vocab
             print("loading fasttext embeddings")
 
             embeddings_matrix = np.zeros(
-                (self.vocab_size, self.embedding_dim))
+                (vocab_size, embedding_dim))
 
-            for word, id in self.token_to_id.items():
+            for word, id in token_to_id.items():
                 try:
                     embeddings_matrix[id] = embeddings.get_word_vector(word)
                 except:
@@ -403,7 +400,8 @@ def main():
                      ATTENTION_DIM,
                      N_LAYERS,
                      DROPOUT,
-                     token_to_id[PAD_TOKEN])
+                     token_to_id[PAD_TOKEN],
+                     token_to_id)
 
 
     ##############################DATA###############################
