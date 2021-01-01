@@ -645,6 +645,9 @@ def main():
             epoch_acc += acc.item()
             epoch_f1 += f1.item()
 
+            if batch %5==0:
+                print(f'\tTrain Loss: {epoch_loss:.3f} | Train Acc: {epoch_acc * 100:.2f}% | Train f1-score {epoch_f1:.3f}')
+
             #TODO: REMOVER
             #break
 
@@ -687,6 +690,10 @@ def main():
                 epoch_loss += loss.item()
                 epoch_acc += acc.item()
                 epoch_f1 += f1.item()
+
+                if batch %5==0:
+                    print(f'\VAL Loss: {epoch_loss:.3f} | VAL Acc: {epoch_acc * 100:.2f}% | VAL f1-score {epoch_f1:.3f}')
+
 
                 #TODO: REMOVER
                 #break
