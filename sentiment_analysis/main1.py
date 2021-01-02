@@ -617,7 +617,7 @@ def main():
     #DEBUG
     train_iterator = torch.utils.data.DataLoader(
         SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
-        batch_size=BATCH_SIZE, shuffle=True, num_workers=0
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
 
     # print("train sents", train_sents[])
