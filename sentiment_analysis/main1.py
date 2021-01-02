@@ -470,33 +470,17 @@ def main():
         #torch.tensor([-1*torch.ones(BATCH_SIZE, HIDDEN_DIM), torch.ones(BATCH_SIZE, HIDDEN_DIM)]).to(device)
    
     elif MODEL_TYPE == "SAR_avg":
-        #temos de ter todas as frases negativas
-        #passar essas frases com os ids pela layer embedding
-        #do mean()
-        print("entrei no SAR", )
-        #train_sents_ids = torch.tensor(train_sents_ids)
-
-        #train_labels=torch.tensor(train_labels)
         train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
         train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
        
         negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
         pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
 
-        print("neg embeddings size", negs_embeddings.size())
-
         avg_negs_embedding=negs_embeddings.mean(1).mean(0)
         avg_pos_embedding=pos_embeddings.mean(0)
-        print("torch size", avg_negs_embedding.size())
 
         target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_negs_embedding.unsqueeze(0)), dim=0)
-        print("target repres", target_representations.size())
-        #target_representations= torch.ones(2, EMBEDDING_DIM).to(device)
-        #target_representations[0,:]= avg_negs_embedding
-        #target_representations[1,:]= avg_negs_embedding
-
-        #print(stop)
-
+   
     else:
         raise Exception("Unknown model")
     
@@ -652,6 +636,10 @@ def main():
             epoch_loss += loss.item()
             epoch_acc += acc.item()
             epoch_f1 += f1.item()
+            print("f1", f1)
+            print("f1 item", f1.item())
+            print("epoch_f1", epoch_f1)
+
 
             if batch %20==0:
                 print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {(epoch_f1/ (batch+1)):.4f}')
