@@ -638,8 +638,15 @@ def main():
         print("target_neighbors", target_neighbors)
 
         print("first sentence", retrieved_neighbors_index[0])
-        print("actual input text", train_sents[0])
         print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[0]])
+        print("actual input label", labels[0])
+        print("2º nearest retrieved labels", labels[retrieved_neighbors_index[0]])
+
+        print("\nfirst sentence", retrieved_neighbors_index[1])
+        print("\nactual input text", train_sents[1])
+        print("\n2º nearest retrieved text", train_sents[retrieved_neighbors_index[1]])
+        print("actual input label", labels[1])
+        print("2º nearest retrieved labels", labels[retrieved_neighbors_index[1]])
         print(stop)
     
     #####
