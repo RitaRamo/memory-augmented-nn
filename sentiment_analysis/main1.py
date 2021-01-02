@@ -47,7 +47,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 MODEL_TYPE="BASELINE"
 MULTI_ATTENTION = False 
-DEBUG = False
+DEBUG = True
 
 class TrainRetrievalDataset(Dataset):
         """
@@ -473,11 +473,34 @@ def main():
         train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
         train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
        
+        #TODO:ONLY 10
+        negs_embeddings=model.embedding(train_neg_sents_ids.long())
+        pos_embeddings=model.embedding(train_pos_sents_ids.long())
+
+        avg_negs_embedding=negs_embeddings.mean(1).mean(0)
+        avg_pos_embedding=pos_embeddings.mean(1).mean(0)
+
+        target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_pos_embedding.unsqueeze(0)), dim=0)
+    
+    elif MODEL_TYPE == "SAR_norm":
+        train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
+        train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
+       
         negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
         pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
 
-        avg_negs_embedding=negs_embeddings.mean(1).mean(0)
-        avg_pos_embedding=pos_embeddings.mean(0)
+        negs_norms=negs_embeddings.norm(p=2, dim=-1)
+        print("negs norms", negs_norms.size())
+        print("negs norms", negs_norms.unsqueeze(-1).size())
+        print("torch sum", torch.sum(
+            negs_embeddings * negs_norms.unsqueeze(-1), dim=1).size())
+        print("torch divide", torch.sum(negs_norms, dim=-1).unsqueeze(-1).size())
+        
+        weighted_embedding = torch.sum(
+            negs_embeddings * negs_norms.unsqueeze(-1), dim=1) / torch.sum(negs_norms, dim=-1).unsqueeze(-1)
+
+        print("all", weighted_embedding.size())
+        
 
         target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_negs_embedding.unsqueeze(0)), dim=0)
    
