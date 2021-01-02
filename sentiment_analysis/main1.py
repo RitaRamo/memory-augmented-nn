@@ -623,6 +623,7 @@ def main():
     # print("train sents", train_sents[])
 
     for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
+        print("token to id", token_to_id)
         print("batch i", i)
         print("sent_bert", sents_bert)
         print("sents", sents)
