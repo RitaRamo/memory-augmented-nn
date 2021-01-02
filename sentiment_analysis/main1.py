@@ -715,7 +715,8 @@ def main():
         epoch_loss = 0
         epoch_acc = 0
         epoch_f1 = 0
-        #preds=torch.tensor([])
+        all_preds=[]
+        all_labels = []
 
         model.train()
 
@@ -741,9 +742,9 @@ def main():
           
             #TODO: init_hidden_states():
             predictions = model(text, text_lengths, target_neighbors_representations).squeeze(1)
-            print("predictions", predictions.size())
-            print("labels", label.size())
-            print(stop)
+            
+            all_preds.append(predictions)
+            all_labels.append(label)
 
             #print("labels", label)
             #print("labels long", label.long())
@@ -752,7 +753,7 @@ def main():
 
             acc = binary_accuracy(predictions, label)
 
-            f1 = f1score(predictions, label)
+            # f1 = f1score(predictions, label)
 
             loss.backward()
 
@@ -763,18 +764,27 @@ def main():
             epoch_f1 += f1
 
             if batch %20==0:
-                print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {(epoch_f1/ (batch+1)):.4f}')
+                print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}%')
 
             #TODO: REMOVER
             #break
 
-        return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
+        all_preds = torch.cat(all_preds, dim=-1)
+        all_labels = torch.cat(all_labels, dim=-1)
+
+        f1 = f1score(all_preds, all_labels)
+        print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {f1:.4f}')
+
+        return epoch_loss / len(iterator), epoch_acc / len(iterator), f1
 
     def evaluate(model, iterator, criterion):
         epoch_loss = 0
         epoch_acc = 0
         epoch_f1 = 0
         model.eval()
+
+        all_preds=[]
+        all_labels = []
 
         with torch.no_grad():
             for batch, (text_bert, text, text_lengths, label) in enumerate(iterator):
@@ -800,7 +810,10 @@ def main():
 
                 loss = criterion(predictions, label)
 
-                f1 = f1score(predictions, label)
+                all_preds.append(predictions)
+                all_labels.append(label)
+
+                #f1 = f1score(predictions, label)
 
                 acc = binary_accuracy(predictions, label)
 
@@ -809,12 +822,18 @@ def main():
                 epoch_f1 += f1
 
                 if batch %20==0:
-                    print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | VAL f1-score {(epoch_f1/ (batch+1)):.4f}')
+                    print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}%')
 
                 #TODO: REMOVER
                 #break
 
-        return epoch_loss / len(iterator), epoch_acc / len(iterator), epoch_f1 / len(iterator)
+        all_preds = torch.cat(all_preds, dim=-1)
+        all_labels = torch.cat(all_labels, dim=-1)
+
+        f1 = f1score(all_preds, all_labels)
+        print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | VAL f1-score {f1:.4f}')
+
+        return epoch_loss / len(iterator), epoch_acc / len(iterator), f1
 
     def epoch_time(start_time, end_time):
         elapsed_time = end_time - start_time
