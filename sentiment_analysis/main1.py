@@ -635,11 +635,7 @@ def main():
 
             epoch_loss += loss.item()
             epoch_acc += acc.item()
-            epoch_f1 += f1.item()
-            print("f1", f1)
-            print("f1 item", f1.item())
-            print("epoch_f1", epoch_f1)
-
+            epoch_f1 += f1
 
             if batch %20==0:
                 print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | Train f1-score {(epoch_f1/ (batch+1)):.4f}')
@@ -685,7 +681,7 @@ def main():
 
                 epoch_loss += loss.item()
                 epoch_acc += acc.item()
-                epoch_f1 += f1.item()
+                epoch_f1 += f1
 
                 if batch %20==0:
                     print(f'\VAL (or test) Loss: {(epoch_loss/ (batch+1)):.4f} | VAL Acc: {(epoch_acc/ (batch+1)) * 100:.4f}% | VAL f1-score {(epoch_f1/ (batch+1)):.4f}')
