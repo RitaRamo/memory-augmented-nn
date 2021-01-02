@@ -635,6 +635,10 @@ def main():
         print("nearest_input", retrieved_neighbors_index)
         target_neighbors=target_lookup[retrieved_neighbors_index]
         print("target_neighbors", target_neighbors)
+
+        print("first sentence", retrieved_neighbors_index[0])
+        print("actual input text", train_sents[0])
+        print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[0]])
         print(stop)
     
     #####
