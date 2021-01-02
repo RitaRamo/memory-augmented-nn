@@ -131,8 +131,9 @@ class TextRetrieval():
     def retrieve_nearest_for_train_query(self, query_text, k=2):
         #print("self query img", query_text)
         D, I = self.datastore.search(query_text, k)     # actual search
-        #print("this is I", I)
+        print("this is I", I)
         nearest_input = I[:,1]
+        print("the actual nearest input", nearest_input)
         return nearest_input
 
     def retrieve_nearest_for_val_or_test_query(self, query_text, k=1):
@@ -621,20 +622,20 @@ def main():
 
     # print("train sents", train_sents[])
 
-    # for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
-    #     print("batch i", i)
-    #     print("sent_bert", sents_bert)
-    #     print("sents", sents)
-    #     print("len", lens)
-    #     print("labels", labels)
-    #     # 4 primeiras frases 
-    #     #pedir ao retrieval para cada uma destas frases o seu vizinho
-    #     # [0,1,2,3]
-    #     retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
-    #     print("nearest_input", retrieved_neighbors_index)
-    #     target_neighbors=target_lookup[retrieved_neighbors_index]
-    #     print("target_neighbors", target_neighbors)
-    #     print(stop)
+    for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
+        print("batch i", i)
+        print("sent_bert", sents_bert)
+        print("sents", sents)
+        print("len", lens)
+        print("labels", labels)
+        # 4 primeiras frases 
+        #pedir ao retrieval para cada uma destas frases o seu vizinho
+        # [0,1,2,3]
+        retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
+        print("nearest_input", retrieved_neighbors_index)
+        target_neighbors=target_lookup[retrieved_neighbors_index]
+        print("target_neighbors", target_neighbors)
+        print(stop)
     
     #####
     train_iterator = torch.utils.data.DataLoader(
