@@ -45,22 +45,25 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_norm"
+MODEL_TYPE="SAR_bert"
 MULTI_ATTENTION = False 
 DEBUG = True
+
+#TODO: debug dos ficheiros dos datasets
+#TODO: debug do retrieval
 
 class TrainRetrievalDataset(Dataset):
         """
         A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
         """
 
-        def __init__(self, train_sents):
+        def __init__(self, train_sents, bert_model):
             if DEBUG:
-                self.train_sents=train_sents[:10]
+                self.train_sents=train_sents[:65] 
             else:
                 self.train_sents=train_sents
             self.dataset_size = len(self.train_sents)
-            self.model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+            self.model = bert_model #SentenceTransformer('paraphrase-distilroberta-base-v1')
 
         def __getitem__(self, i):
             bert_text = self.model.encode(self.train_sents[i][:MAX_LEN])
@@ -71,16 +74,54 @@ class TrainRetrievalDataset(Dataset):
 
 class TextRetrieval():
 
-    def __init__(self, train_dataloader):
+    def __init__(self, train_dataloader, labels):
         dim_examples = 768 #size of bert embeddings
         self.datastore = faiss.IndexFlatL2(dim_examples) #datastore
-        self._add_examples(train_dataloader)
+        #self._add_examples(train_dataloader)
+        
+        if MODEL_TYPE== "SAR_bert":
+            #if SAR_bert, more than saving all the inputs to the datastore,
+            #also store a representation from the average bert embeddings of all negatives sentences, as well pos sentences
+            self.labels = labels
+            self.neg_bert_embedding = torch.zeros(dim_examples)
+            self.pos_bert_embedding = torch.zeros(dim_examples)
+            self.number_of_neg = 0.0
+            self.number_of_pos = 0.0
+
+            self._add_examples_SAR_bert(train_dataloader)
+            
+            self.neg_bert_embedding = self.neg_bert_embedding/self.number_of_neg
+            self.pos_bert_embedding = self.neg_bert_embedding/self.number_of_pos
+
+        else:
+            self._add_examples(train_dataloader)
 
     def _add_examples(self, train_dataloader):
         print("\nadding input examples to datastore (retrieval)")
 
         for i, (text_bert) in enumerate(train_dataloader):
             
+            self.datastore.add(text_bert.cpu().numpy())
+
+            if i%5==0:
+                print("batch, n of examples", i, self.datastore.ntotal)
+        
+        print("finish retrieval")
+
+    def _add_examples_SAR_bert(self, train_dataloader):
+        print("\nadding input examples to datastore (retrieval)")
+
+        for i, (text_bert) in enumerate(train_dataloader):
+            batch_size = text_bert.size()[0]
+            
+            neg_sentences = text_bert[torch.tensor(self.labels[i*batch_size:i*batch_size+batch_size])==0]
+            self.number_of_neg +=neg_sentences.size()[0]
+            self.neg_bert_embedding += torch.sum(neg_sentences, dim=0)
+           
+            pos_sentences = text_bert[torch.tensor(self.labels[i*batch_size:i*batch_size+batch_size])==1]
+            self.number_of_pos += pos_sentences.size()[0]
+            self.pos_bert_embedding += torch.sum(pos_sentences, dim=0)
+
             self.datastore.add(text_bert.cpu().numpy())
 
             if i%5==0:
@@ -107,13 +148,13 @@ class SADataset(Dataset):
         A PyTorch Dataset class to be used in a PyTorch DataLoader to create batches.
         """
 
-        def __init__(self, sents_original, sents_ids, lens, labels):
+        def __init__(self, sents_original, sents_ids, lens, labels, bert_model):
             self.sents_original = sents_original
             self.sents_ids = sents_ids
             self.lens = lens
             self.len_dataset = len(sents_ids)
             self.labels = labels
-            self.model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+            self.model = bert_model #SentenceTransformer('paraphrase-distilroberta-base-v1')
 
             # print("entrei no init", sents_ids)
             # print("self sents", self.sents)
@@ -152,8 +193,11 @@ class SARModel(nn.Module):
             self.init_c = nn.Linear(retrieved_dim, hidden_dim)
         elif MODEL_TYPE == "SAR_norm":
             retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
+            self.init_c = nn.Linear(retrieved_dim, hidden_dim)
+
         elif MODEL_TYPE == "SAR_bert":
-            retrieved_dim= 768 # retrieved target correspond to bert embeddings size
+            retrieved_dim = 768 # retrieved target correspond to bert embeddings size
+            self.init_c = nn.Linear(retrieved_dim, hidden_dim)
 
         if MULTI_ATTENTION:
             print("using our multi attention")
@@ -349,6 +393,12 @@ class SARModel(nn.Module):
 
         elif MODEL_TYPE== "SAR_avg":
             init_cell = self.init_c(target_neighbors_representations)
+        
+        elif MODEL_TYPE== "SAR_norm":
+            init_cell = self.init_c(target_neighbors_representations)
+
+        elif MODEL_TYPE== "SAR_bert":
+            init_cell = self.init_c(target_neighbors_representations)
 
         else:
             raise Exception("that model does not exist")
@@ -448,13 +498,15 @@ def main():
     #model = SentenceTransformer('paraphrase-distilroberta-base-v1')
     #bert_text = torch.tensor(model.encode(train_sents[:10])).to(device)
 
+    bert_model = SentenceTransformer('paraphrase-distilroberta-base-v1')
+
     #RETRIEVAL: add to datastore the inputs text
     train_retrieval_iterator = torch.utils.data.DataLoader(
-        TrainRetrievalDataset(train_sents),
+        TrainRetrievalDataset(train_sents,bert_model),
         batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
 
-    text_retrieval=TextRetrieval(train_retrieval_iterator)
+    text_retrieval=TextRetrieval(train_retrieval_iterator, train_labels)
     target_lookup = torch.tensor(train_labels)
 
     print("loading the two representations for the binary targets")
@@ -489,21 +541,46 @@ def main():
         negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
         pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
 
-        negs_norms=negs_embeddings.norm(p=2, dim=-1)
-        print("negs norms", negs_norms.size())
-        print("negs norms", negs_norms.unsqueeze(-1).size())
-        print("torch sum", torch.sum(
-            negs_embeddings * negs_norms.unsqueeze(-1), dim=1).size())
-        print("torch divide", torch.sum(negs_norms, dim=-1).unsqueeze(-1).size())
-        
-        weighted_embedding = torch.sum(
+        negs_norms=negs_embeddings.norm(p=2, dim=-1)  
+        all_sentences_weighted_negs_embedding = torch.sum(
             negs_embeddings * negs_norms.unsqueeze(-1), dim=1) / torch.sum(negs_norms, dim=-1).unsqueeze(-1)
-
-        print("all", weighted_embedding.size())
-        
-
-        target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_negs_embedding.unsqueeze(0)), dim=0)
+        weighted_negs_embedding = all_sentences_weighted_negs_embedding.mean(0)
+ 
+        pos_norms=pos_embeddings.norm(p=2, dim=-1)  
+        all_sentences_weighted_pos_embedding = torch.sum(
+            pos_embeddings * pos_norms.unsqueeze(-1), dim=1) / torch.sum(pos_norms, dim=-1).unsqueeze(-1)
+        weighted_pos_embedding = all_sentences_weighted_pos_embedding.mean(0)
+ 
+        target_representations= torch.cat((weighted_negs_embedding.unsqueeze(0), weighted_pos_embedding.unsqueeze(0)), dim=0)
    
+    elif MODEL_TYPE =="SAR_bert":
+        
+        target_representations= torch.cat((text_retrieval.neg_bert_embedding.unsqueeze(0), text_retrieval.neg_bert_embedding.unsqueeze(0)), dim=0)
+        print("yeah funcionou")
+        # with open(DATA_FOLDER+"train-neg.txt") as f:
+        #     train_neg_sents = f.readlines()
+        # train_neg_sents = [sent.strip() for sent in train_neg_sents]
+        # with open(DATA_FOLDER+'train-pos.txt', 'r') as f:
+        #     train_pos_sents = f.readlines()
+        # train_pos_sents = [sent.strip() for sent in train_pos_sents]
+        
+        # print("train_neg_sents", train_neg_sents)
+        # print("train_pos_sents", train_pos_sents)
+
+        # print("loading bert model")
+
+
+        # for bert, frases_bert in train_retrieval_iterator:
+        #     frases_bert[torch.tensor(train_labels)==0]
+
+
+        # train_neg_sents = bert_model.encode(train_neg_sents)
+        # train_pos_sents = bert_model.encode(train_pos_sents)
+
+        # print("brt model", train_pos_sents)
+        # print("train_neg_sents", train_neg_sents)
+        # print("train_pos_sents", train_pos_sents)
+
     else:
         raise Exception("Unknown model")
     
@@ -562,17 +639,17 @@ def main():
     
     #####
     train_iterator = torch.utils.data.DataLoader(
-        SADataset(train_sents, train_sents_ids, train_lens, train_labels),
+        SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
         batch_size=BATCH_SIZE, shuffle=True, num_workers=0
     )
 
     val_iterator = torch.utils.data.DataLoader(
-        SADataset(val_sents, val_sents_ids, val_lens, val_labels),
+        SADataset(val_sents, val_sents_ids, val_lens, val_labels, bert_model),
         batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
 
     test_iterator = torch.utils.data.DataLoader(
-        SADataset(test_sents, test_sents_ids, test_lens, test_labels),
+        SADataset(test_sents, test_sents_ids, test_lens, test_labels, bert_model),
         batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
 
