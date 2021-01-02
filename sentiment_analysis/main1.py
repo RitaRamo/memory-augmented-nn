@@ -49,7 +49,6 @@ MODEL_TYPE="BASELINE"
 MULTI_ATTENTION = False 
 DEBUG = False
 
-#TODO: debug dos ficheiros dos datasets
 #TODO: debug do retrieval
 
 class TrainRetrievalDataset(Dataset):
@@ -654,14 +653,14 @@ def main():
     )
 
 
-    for i, (sents_bert, sents, lens, labels) in enumerate(test_iterator):
-        print("token to id", token_to_id)
-        print("batch i", i)
-        print("sent_bert", sents_bert)
-        print("sents", sents)
-        print("len", lens)
-        print("labels", labels)
-        print(stop)
+    # for i, (sents_bert, sents, lens, labels) in enumerate(test_iterator):
+    #     print("token to id", token_to_id)
+    #     print("batch i", i)
+    #     print("sent_bert", sents_bert)
+    #     print("sents", sents)
+    #     print("len", lens)
+    #     print("labels", labels)
+    #     print(stop)
 
     ############################################TRAIN#################################################
 
