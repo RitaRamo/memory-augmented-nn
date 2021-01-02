@@ -615,10 +615,10 @@ def main():
     #                                                                                                   random_state=42)
 
     #DEBUG
-    # train_iterator = torch.utils.data.DataLoader(
-    #     SADataset(train_sents, train_sents_ids, train_lens, train_labels),
-    #     batch_size=BATCH_SIZE, shuffle=False, num_workers=0
-    # )
+    train_iterator = torch.utils.data.DataLoader(
+        SADataset(train_sents, train_sents_ids, train_lens, train_labels),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    )
 
     # print("train sents", train_sents[])
 
