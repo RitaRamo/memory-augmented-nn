@@ -47,7 +47,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 MODEL_TYPE="BASELINE"
 MULTI_ATTENTION = False 
-DEBUG = True
+DEBUG = False
 
 #TODO: debug dos ficheiros dos datasets
 #TODO: debug do retrieval
