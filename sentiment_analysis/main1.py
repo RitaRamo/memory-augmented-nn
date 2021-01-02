@@ -131,9 +131,9 @@ class TextRetrieval():
     def retrieve_nearest_for_train_query(self, query_text, k=2):
         #print("self query img", query_text)
         D, I = self.datastore.search(query_text, k)     # actual search
-        print("this is I", I)
+        #print("this is I", I)
         nearest_input = I[:,1]
-        print("the actual nearest input", nearest_input)
+        #print("the actual nearest input", nearest_input)
         return nearest_input
 
     def retrieve_nearest_for_val_or_test_query(self, query_text, k=1):
