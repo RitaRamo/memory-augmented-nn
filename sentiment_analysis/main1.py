@@ -45,7 +45,7 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_bert"
+MODEL_TYPE="BASELINE"
 MULTI_ATTENTION = False 
 DEBUG = True
 
@@ -59,7 +59,7 @@ class TrainRetrievalDataset(Dataset):
 
         def __init__(self, train_sents, bert_model):
             if DEBUG:
-                self.train_sents=train_sents[:65] 
+                self.train_sents=train_sents[:40] 
             else:
                 self.train_sents=train_sents
             self.dataset_size = len(self.train_sents)
@@ -654,6 +654,15 @@ def main():
     )
 
 
+    for i, (sents_bert, sents, lens, labels) in enumerate(test_iterator):
+        print("token to id", token_to_id)
+        print("batch i", i)
+        print("sent_bert", sents_bert)
+        print("sents", sents)
+        print("len", lens)
+        print("labels", labels)
+        print(stop)
+
     ############################################TRAIN#################################################
 
     def adjust_learning_rate(optimizer, shrink_factor):
@@ -688,7 +697,7 @@ def main():
 
     def f1score(preds, y):
         predictions = torch.round(torch.sigmoid(preds))
-        return f1_score(y.cpu().detach().numpy(), predictions.cpu().detach().numpy())
+        return f1_score(y.cpu().detach().numpy(), predictions.cpu().detach().numpy(), average="macro")
 
     def train(model, iterator, optimizer, criterion):
         epoch_loss = 0
@@ -831,6 +840,7 @@ def main():
         #break
 
     model.load_state_dict(torch.load('tut2-model.pt'))
+
 
     test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
