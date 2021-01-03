@@ -45,7 +45,7 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_avg"
+MODEL_TYPE="SAR_norm"
 MULTI_ATTENTION = True 
 DEBUG = False
 
