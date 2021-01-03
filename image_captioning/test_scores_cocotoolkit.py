@@ -6,7 +6,7 @@ MODEL = "SAR_bert"
 MULTILEVEL_ATTENTION =True
 if __name__ == "__main__":
 
-    test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMATbeam5.json"
+    test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMAT.json"
     if MODEL == "BASELINE":
         generated_sentences_path = "baselinebeam5.json"
         scores_path = "baseline_coco_resultsbeam5.json"
