@@ -12,7 +12,7 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 MODEL_TYPE = "SAR_norm"
-MULTILEVEL_ATTENTION =True
+MULTILEVEL_ATTENTION =False
 #BASELINE
 #SAR_avg
 #SAR_norm
