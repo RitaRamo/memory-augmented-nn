@@ -45,7 +45,7 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_avg"
+MODEL_TYPE="SAR_-11"
 MULTI_ATTENTION = True 
 DEBUG = False
 
@@ -789,7 +789,7 @@ def main():
         with torch.no_grad():
             for batch, (text_bert, text, text_lengths, label) in enumerate(iterator):
 
-                retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(text_bert.numpy()) 
+                retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_val_or_test_query(text_bert.numpy()) 
                 target_neighbors=target_lookup[retrieved_neighbors_index]
                 #print("target_neighbors", target_neighbors)
                 #print("target_neighbors", target_representations)
