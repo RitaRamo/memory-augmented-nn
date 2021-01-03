@@ -34,7 +34,7 @@ data_name = 'flickr8k_5_cap_per_img_5_min_word_freq'
 # model checkpoint
 #checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq.pth.tar'
 # word map, ensure it's the same the data was encoded with and the model was trained with
-word_map_file = 'dataset_splits/WORDMAP_flickr8k_5_cap_per_img_5_min_word_freqbeam5.json'
+word_map_file = 'dataset_splits/WORDMAP_flickr8k_5_cap_per_img_5_min_word_freq.json'
 # sets device for model and PyTorch tensors
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
