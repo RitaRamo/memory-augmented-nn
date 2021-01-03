@@ -19,8 +19,8 @@ MULTILEVEL_ATTENTION =False
 #SAR_bert
 
 #if MODEL_TYPE == "BASELINE":
-#checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
-checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
+checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
+#checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
 
 print("checkpoint", checkpoint)
 # elif MODEL_TYPE == "SAR_avg":
@@ -285,6 +285,6 @@ def evaluate(beam_size):
 
 
 if __name__ == '__main__':
-    beam_size = 5
+    beam_size = 1
     print("\nBLEU-4 score @ beam size of %d is %.4f." %
           (beam_size, evaluate(beam_size)))
