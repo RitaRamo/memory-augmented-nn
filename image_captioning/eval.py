@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_bert"
+MODEL_TYPE = "SAR_norm"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -34,7 +34,7 @@ data_name = 'flickr8k_5_cap_per_img_5_min_word_freq'
 # model checkpoint
 #checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq.pth.tar'
 # word map, ensure it's the same the data was encoded with and the model was trained with
-word_map_file = 'dataset_splits/WORDMAP_flickr8k_5_cap_per_img_5_min_word_freq.json'
+word_map_file = 'dataset_splits/WORDMAP_flickr8k_5_cap_per_img_5_min_word_freqbeam5.json'
 # sets device for model and PyTorch tensors
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # set to true only if inputs to model are fixed size; otherwise lot of computational overhead
@@ -251,27 +251,27 @@ def evaluate(beam_size):
             })
             imgids_so_far.append(img_id.item())
 
-    with open("SAT_discrete.json", 'w+') as f:
+    with open("SAT_discretebeam5.json", 'w+') as f:
         json.dump(list_hipotheses, f, indent=2)
 
     if MODEL_TYPE == "BASELINE":
-        with open("baseline.json", 'w+') as f:
+        with open("baselinebeam5.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_avg":
-        with open("SAR_avg.json", 'w+') as f:
+        with open("SAR_avgbeam5.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_norm":
         if MULTILEVEL_ATTENTION:
-            with open("SAR_norm.json", 'w+') as f:
+            with open("SAR_normbeam5.json", 'w+') as f:
                 json.dump(list_hipotheses, f, indent=2)
         else:
-            with open("SAR_norm_no_multiattention.json", 'w+') as f:
+            with open("SAR_norm_no_multiattentionbeam5.json", 'w+') as f:
                 json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_bert":
-        with open("SAR_bert.json", 'w+') as f:
+        with open("SAR_bertbeam5.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_norm_wt_m":
-        with open("SAR_norm_wt_m.json", 'w+') as f:
+        with open("SAR_norm_wt_mbeam5.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     else:
         raise Exception("unknow model")
@@ -283,6 +283,6 @@ def evaluate(beam_size):
 
 
 if __name__ == '__main__':
-    beam_size = 1
+    beam_size = 5
     print("\nBLEU-4 score @ beam size of %d is %.4f." %
           (beam_size, evaluate(beam_size)))

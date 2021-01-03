@@ -6,26 +6,26 @@ MODEL = "SAR_bert"
 MULTILEVEL_ATTENTION =True
 if __name__ == "__main__":
 
-    test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMAT.json"
+    test_path = "dataset_splits/TEST_COCOTOOLKIT_FORMATbeam5.json"
     if MODEL == "BASELINE":
-        generated_sentences_path = "baseline.json"
-        scores_path = "baseline_coco_results.json"
+        generated_sentences_path = "baselinebeam5.json"
+        scores_path = "baseline_coco_resultsbeam5.json"
     elif MODEL == "SAR_avg":
-        generated_sentences_path = "SAR_avg.json"
-        scores_path = "SAR_avg_coco_results.json"
+        generated_sentences_path = "SAR_avgbeam5.json"
+        scores_path = "SAR_avg_coco_resultsbeam5.json"
     elif MODEL == "SAR_norm":
         if MULTILEVEL_ATTENTION:
-            generated_sentences_path = "SAR_norm.json"
-            scores_path = "SAR_norm_coco_results.json"
+            generated_sentences_path = "SAR_normbeam5.json"
+            scores_path = "SAR_norm_coco_resultsbeam5.json"
         else:
-            generated_sentences_path = "SAR_norm_no_multiattention.json"
-            scores_path = "SAR_norm_no_multiattention_coco_results.json"
+            generated_sentences_path = "SAR_norm_no_multiattentionbeam5.json"
+            scores_path = "SAR_norm_no_multiattention_coco_resultsbeam5.json"
     elif MODEL == "SAR_bert":
-        generated_sentences_path = "SAR_bert.json"
-        scores_path = "SAR_bert_coco_results.json"
+        generated_sentences_path = "SAR_bertbeam5.json"
+        scores_path = "SAR_bert_coco_resultsbeam5.json"
     elif MODEL == "SAR_norm_wt_m":
-        generated_sentences_path = "SAR_norm_wt_m.json"
-        scores_path = "SAR_norm_wt_m_coco_results.json"
+        generated_sentences_path = "SAR_norm_wt_mbeam5.json"
+        scores_path = "SAR_norm_wt_m_coco_resultsbeam5.json"
     else:
         raise Exception("unknown model")
 
