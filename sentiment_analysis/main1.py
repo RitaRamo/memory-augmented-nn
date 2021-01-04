@@ -45,9 +45,10 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_bert"
+MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = True
 DEBUG = False
+WITHOUT_RETRIEVED_MEMORY=True
 
 #TODO: debug do retrieval
 
@@ -191,9 +192,10 @@ class SARModel(nn.Module):
         elif MODEL_TYPE == "SAR_avg":
             retrieved_dim= embedding_dim # retrieved target correspond to avg word embeddings from caption
             self.init_c = nn.Linear(retrieved_dim, hidden_dim)
+
         elif MODEL_TYPE == "SAR_norm":
             retrieved_dim= embedding_dim # retrieved target correspond to avg embeddings weighted by norm
-            self.init_c = nn.Linear(retrieved_dim, hidden_dim)
+            self.init_c = nn.Linear(retrieved_dim, hidden_dim)                
 
         elif MODEL_TYPE == "SAR_bert":
             retrieved_dim = 768 # retrieved target correspond to bert embeddings size
@@ -393,7 +395,11 @@ class SARModel(nn.Module):
 
         elif MODEL_TYPE== "SAR_avg":
             init_cell = self.init_c(target_neighbors_representations)
-        
+
+            if WITHOUT_RETRIEVED_MEMORY:
+                #equal to baseline
+                init_cell = torch.zeros(batch_size, HIDDEN_DIM)
+
         elif MODEL_TYPE== "SAR_norm":
             init_cell = self.init_c(target_neighbors_representations)
 
@@ -556,69 +562,15 @@ def main():
     elif MODEL_TYPE =="SAR_bert":
         
         target_representations= torch.cat((text_retrieval.neg_bert_embedding.unsqueeze(0), text_retrieval.pos_bert_embedding.unsqueeze(0)), dim=0)
-        print("yeah funcionou")
-        # with open(DATA_FOLDER+"train-neg.txt") as f:
-        #     train_neg_sents = f.readlines()
-        # train_neg_sents = [sent.strip() for sent in train_neg_sents]
-        # with open(DATA_FOLDER+'train-pos.txt', 'r') as f:
-        #     train_pos_sents = f.readlines()
-        # train_pos_sents = [sent.strip() for sent in train_pos_sents]
-        
-        # print("train_neg_sents", train_neg_sents)
-        # print("train_pos_sents", train_pos_sents)
-
-        # print("loading bert model")
-
-
-        # for bert, frases_bert in train_retrieval_iterator:
-        #     frases_bert[torch.tensor(train_labels)==0]
-
-
-        # train_neg_sents = bert_model.encode(train_neg_sents)
-        # train_pos_sents = bert_model.encode(train_pos_sents)
-
-        # print("brt model", train_pos_sents)
-        # print("train_neg_sents", train_neg_sents)
-        # print("train_pos_sents", train_pos_sents)
 
     else:
         raise Exception("Unknown model")
     
-    # elif MODEL_TYPE== "SAR_norm":
-    #     train_sents_ids = torch.tensor(train_sents_ids)
-    #     train_labels=torch.tensor(train_labels)
-    #     train_neg_sents_ids=train_sents_ids[train_labels==0]
-    #     train_pos_sents_ids=train_sents_ids[train_labels==1]
-
-    #     negs_embedding=model.embedding(train_neg_sents_ids.long())
-    #     pos_embeddings=model.embedding(train_pos_sents_ids.long())
-
-
-
-        #SIMILAR IDEA
-
-    #else: #model bert
-        #train_neg_sents_original= # 
-        #train_pos_sents_original= #
-
-  
-
-    # print("new val_sents sents", val_sents[0])
-    # print("val_sents ids", val_sents_ids[0,:])
-
-    # print(stop)
-
-    # train_sents_ids, val_sents_ids, train_lens, val_lens, train_labels, val_labels = train_test_split(train_sents_ids,
-    #                                                                                                   train_lens,
-    #                                                                                                   train_labels,
-    #                                                                                                   test_size=0.1,
-    #                                                                                                   random_state=42)
-
     #DEBUG
-    train_iterator = torch.utils.data.DataLoader(
-        SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
-        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
-    )
+    # train_iterator = torch.utils.data.DataLoader(
+    #     SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
+    #     batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    # )
 
     # print("train sents", train_sents[])
 
@@ -664,16 +616,6 @@ def main():
         SADataset(test_sents, test_sents_ids, test_lens, test_labels, bert_model),
         batch_size=BATCH_SIZE, shuffle=False, num_workers=0
     )
-
-
-    # for i, (sents_bert, sents, lens, labels) in enumerate(test_iterator):
-    #     print("token to id", token_to_id)
-    #     print("batch i", i)
-    #     print("sent_bert", sents_bert)
-    #     print("sents", sents)
-    #     print("len", lens)
-    #     print("labels", labels)
-    #     print(stop)
 
     ############################################TRAIN#################################################
 
@@ -881,6 +823,7 @@ def main():
 
     print("Model Name", MODEL_TYPE)
     print("attention", MULTI_ATTENTION)
+    print("WITHOUT_RETRIEVED_MEMORY", WITHOUT_RETRIEVED_MEMORY)
     print(f'Test Loss: {test_loss:.4f} | Test Acc: {test_acc * 100:.4f}% | Test f1-score {test_f1:.4f} ')
     print("Test entire value", test_acc, test_f1)
     #: 01 | Epoch Time: 0m 34s#
