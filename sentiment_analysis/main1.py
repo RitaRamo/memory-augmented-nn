@@ -45,8 +45,8 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_bert"
-MULTI_ATTENTION = True 
+MODEL_TYPE="SAR_avg"
+MULTI_ATTENTION = False
 DEBUG = False
 
 #TODO: debug do retrieval
@@ -880,6 +880,7 @@ def main():
     test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
     print("Model Name", MODEL_TYPE)
+    print("attention", MULTI_ATTENTION)
     print(f'Test Loss: {test_loss:.4f} | Test Acc: {test_acc * 100:.4f}% | Test f1-score {test_f1:.4f} ')
     print("Test entire value", test_acc, test_f1)
     #: 01 | Epoch Time: 0m 34s#
