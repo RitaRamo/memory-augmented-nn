@@ -45,7 +45,7 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_avg"
+MODEL_TYPE="SAR_norm"
 MULTI_ATTENTION = False
 DEBUG = False
 
@@ -90,7 +90,7 @@ class TextRetrieval():
             self._add_examples_SAR_bert(train_dataloader)
             
             self.neg_bert_embedding = self.neg_bert_embedding/self.number_of_neg
-            self.pos_bert_embedding = self.neg_bert_embedding/self.number_of_pos
+            self.pos_bert_embedding = self.pos_bert_embedding/self.number_of_pos
 
         else:
             self._add_examples(train_dataloader)
@@ -538,8 +538,8 @@ def main():
         train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
         train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
        
-        negs_embeddings=model.embedding(train_neg_sents_ids[:10].long())
-        pos_embeddings=model.embedding(train_pos_sents_ids[:10].long())
+        negs_embeddings=model.embedding(train_neg_sents_ids.long())
+        pos_embeddings=model.embedding(train_pos_sents_ids.long())
 
         negs_norms=negs_embeddings.norm(p=2, dim=-1)  
         all_sentences_weighted_negs_embedding = torch.sum(
