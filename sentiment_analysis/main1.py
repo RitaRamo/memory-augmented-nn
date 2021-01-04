@@ -555,7 +555,7 @@ def main():
    
     elif MODEL_TYPE =="SAR_bert":
         
-        target_representations= torch.cat((text_retrieval.neg_bert_embedding.unsqueeze(0), text_retrieval.neg_bert_embedding.unsqueeze(0)), dim=0)
+        target_representations= torch.cat((text_retrieval.neg_bert_embedding.unsqueeze(0), text_retrieval.pos_bert_embedding.unsqueeze(0)), dim=0)
         print("yeah funcionou")
         # with open(DATA_FOLDER+"train-neg.txt") as f:
         #     train_neg_sents = f.readlines()
