@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_avg"
+MODEL_TYPE = "SAR_norm"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -123,168 +123,177 @@ def evaluate(beam_size):
         
         input_imgs = encoder_out.mean(dim=1)
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
-        if img_id in [7342, 7134,  7540, 7463,  7266, 7452, 7164, 7662]:
-            print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
-            #break
         
-    #     #print("encoder_out", encoder_out.size())
-    #     #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
-    #     # We'll treat the problem as having a batch size of k
-    #     # (k, num_pixels, encoder_dim)
-    #     encoder_out = encoder_out.expand(k, num_pixels, encoder_dim)
-    #     retrieved_neighbors_index = retrieved_neighbors_index.expand(k)
-    #     # print("encoder_out  after", encoder_out.size())
+        #print("encoder_out", encoder_out.size())
+        #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
+        # We'll treat the problem as having a batch size of k
+        # (k, num_pixels, encoder_dim)
+        encoder_out = encoder_out.expand(k, num_pixels, encoder_dim)
+        retrieved_neighbors_index = retrieved_neighbors_index.expand(k)
+        # print("encoder_out  after", encoder_out.size())
 
-    #     # print("retireived neigh index after", retrieved_neighbors_index.size())
-    #     # print("retireived neigh index after", retrieved_neighbors_index)
+        # print("retireived neigh index after", retrieved_neighbors_index.size())
+        # print("retireived neigh index after", retrieved_neighbors_index)
 
-    #     # Tensor to store top k previous words at each step; now they're just <start>
-    #     k_prev_words = torch.LongTensor(
-    #         [[word_map['<start>']]] * k).to(device)  # (k, 1)
+        # Tensor to store top k previous words at each step; now they're just <start>
+        k_prev_words = torch.LongTensor(
+            [[word_map['<start>']]] * k).to(device)  # (k, 1)
 
-    #     # Tensor to store top k sequences; now they're just <start>
-    #     seqs = k_prev_words  # (k, 1)
+        # Tensor to store top k sequences; now they're just <start>
+        seqs = k_prev_words  # (k, 1)
 
-    #     # Tensor to store top k sequences' scores; now they're just 0
-    #     top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
+        # Tensor to store top k sequences' scores; now they're just 0
+        top_k_scores = torch.zeros(k, 1).to(device)  # (k, 1)
 
-    #     # Lists to store completed sequences and scores
-    #     complete_seqs = list()
-    #     complete_seqs_scores = list()
+        # Lists to store completed sequences and scores
+        complete_seqs = list()
+        complete_seqs_scores = list()
 
-    #     # Start decoding
-    #     step = 1
-    #     h, c, retrieved_target = decoder.init_hidden_state(encoder_out, retrieved_neighbors_index)
+        # Start decoding
+        step = 1
+        h, c, retrieved_target = decoder.init_hidden_state(encoder_out, retrieved_neighbors_index)
 
-    #     encoder_out= decoder.attention.prepare_encoder_out(encoder_out) 
+        encoder_out= decoder.attention.prepare_encoder_out(encoder_out) 
 
+        alphas = torch.zeros(1, max(39), 300).to(device)
+        enter_retrieved=False
+        # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
+        while True:
+            if img_id in [7134]:
+                enter_retrieved=True
+                print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
+                #break
+                
+                embeddings = decoder.embedding(
+                    k_prev_words).squeeze(1)  # (s, embed_dim)
 
-    #     # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
-    #     while True:
+                # (s, encoder_dim), (s, num_pixels)
+                awe, alpha = decoder.attention(encoder_out, h, retrieved_target)
+                alphas[:, step, :] = alpha
+                
+                print("alphas", alpha)
 
-    #         embeddings = decoder.embedding(
-    #             k_prev_words).squeeze(1)  # (s, embed_dim)
+                # gating scalar, (s, encoder_dim)
+                #gate = decoder.sigmoid(decoder.f_beta(h))
+                #awe = gate * awe
 
-    #         # (s, encoder_dim), (s, num_pixels)
-    #         awe, _ = decoder.attention(encoder_out, h, retrieved_target)
+                h, c = decoder.decode_step(
+                    torch.cat([embeddings, awe], dim=1), (h, c))  # (s, decoder_dim)
 
-    #         # gating scalar, (s, encoder_dim)
-    #         #gate = decoder.sigmoid(decoder.f_beta(h))
-    #         #awe = gate * awe
+                scores = decoder.fc(h)  # (s, vocab_size)
 
-    #         h, c = decoder.decode_step(
-    #             torch.cat([embeddings, awe], dim=1), (h, c))  # (s, decoder_dim)
+                scores = F.log_softmax(scores, dim=1)
 
-    #         scores = decoder.fc(h)  # (s, vocab_size)
+                # Add
+                scores = top_k_scores.expand_as(scores) + scores  # (s, vocab_size)
 
-    #         scores = F.log_softmax(scores, dim=1)
+                # For the first step, all k points will have the same scores (since same k previous words, h, c)
+                if step == 1:
+                    top_k_scores, top_k_words = scores[0].topk(
+                        k, 0, True, True)  # (s)
+                else:
+                    # Unroll and find top scores, and their unrolled indices
+                    # (s)
+                    top_k_scores, top_k_words = scores.view(
+                        -1).topk(k, 0, True, True)
 
-    #         # Add
-    #         scores = top_k_scores.expand_as(scores) + scores  # (s, vocab_size)
+                # Convert unrolled indices to actual indices of scores
+                prev_word_inds = top_k_words / vocab_size  # (s)
+                next_word_inds = top_k_words % vocab_size  # (s)
+                
+                # Add new words to sequences
+                seqs = torch.cat(
+                    [seqs[prev_word_inds.long()], next_word_inds.unsqueeze(1)], dim=1)  # (s, step+1)
 
-    #         # For the first step, all k points will have the same scores (since same k previous words, h, c)
-    #         if step == 1:
-    #             top_k_scores, top_k_words = scores[0].topk(
-    #                 k, 0, True, True)  # (s)
-    #         else:
-    #             # Unroll and find top scores, and their unrolled indices
-    #             # (s)
-    #             top_k_scores, top_k_words = scores.view(
-    #                 -1).topk(k, 0, True, True)
+                # Which sequences are incomplete (didn't reach <end>)?
+                incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
+                                next_word != word_map['<end>']]
+                complete_inds = list(
+                    set(range(len(next_word_inds))) - set(incomplete_inds))
 
-    #         # Convert unrolled indices to actual indices of scores
-    #         prev_word_inds = top_k_words / vocab_size  # (s)
-    #         next_word_inds = top_k_words % vocab_size  # (s)
-            
-    #         # Add new words to sequences
-    #         seqs = torch.cat(
-    #             [seqs[prev_word_inds.long()], next_word_inds.unsqueeze(1)], dim=1)  # (s, step+1)
+                # Set aside complete sequences
+                if len(complete_inds) > 0:
+                    complete_seqs.extend(seqs[complete_inds].tolist())
+                    complete_seqs_scores.extend(top_k_scores[complete_inds])
+                k -= len(complete_inds)  # reduce beam length accordingly
 
-    #         # Which sequences are incomplete (didn't reach <end>)?
-    #         incomplete_inds = [ind for ind, next_word in enumerate(next_word_inds) if
-    #                            next_word != word_map['<end>']]
-    #         complete_inds = list(
-    #             set(range(len(next_word_inds))) - set(incomplete_inds))
+                # Proceed with incomplete sequences
+                if k == 0:
+                    break
+                incomplete_inds=torch.tensor(incomplete_inds).long()
+                seqs = seqs[incomplete_inds]
+                h = h[prev_word_inds[incomplete_inds].long()]
+                c = c[prev_word_inds[incomplete_inds].long()]
+                encoder_out = encoder_out[prev_word_inds[incomplete_inds].long()]
+                top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
+                k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
 
-    #         # Set aside complete sequences
-    #         if len(complete_inds) > 0:
-    #             complete_seqs.extend(seqs[complete_inds].tolist())
-    #             complete_seqs_scores.extend(top_k_scores[complete_inds])
-    #         k -= len(complete_inds)  # reduce beam length accordingly
+                # Break if things have been going on too long
+                if step > 39:
+                    break
+                step += 1
+            else:
+                continue
+        if enter_retrieved:
+            print("img_id, retrieved_neighbors_index and all alphas", img_id, retrieved_neighbors_index, alphas)
 
-    #         # Proceed with incomplete sequences
-    #         if k == 0:
-    #             break
-    #         incomplete_inds=torch.tensor(incomplete_inds).long()
-    #         seqs = seqs[incomplete_inds]
-    #         h = h[prev_word_inds[incomplete_inds].long()]
-    #         c = c[prev_word_inds[incomplete_inds].long()]
-    #         encoder_out = encoder_out[prev_word_inds[incomplete_inds].long()]
-    #         top_k_scores = top_k_scores[incomplete_inds].unsqueeze(1)
-    #         k_prev_words = next_word_inds[incomplete_inds].unsqueeze(1)
+        if k == beam_size:
+            complete_seqs.extend(seqs[[incomplete_inds]].tolist())
+            complete_seqs_scores.extend(top_k_scores[[incomplete_inds]])
 
-    #         # Break if things have been going on too long
-    #         if step > 39:
-    #             break
-    #         step += 1
+        i = complete_seqs_scores.index(max(complete_seqs_scores))
+        seq = complete_seqs[i]
 
-    #     if k == beam_size:
-    #         complete_seqs.extend(seqs[[incomplete_inds]].tolist())
-    #         complete_seqs_scores.extend(top_k_scores[[incomplete_inds]])
+        # References
+        img_caps = allcaps[0].tolist()
+        img_captions = list(
+            map(lambda c: [w for w in c if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}],
+                img_caps))  # remove <start> and pads
+        references.append(img_captions)
 
-    #     i = complete_seqs_scores.index(max(complete_seqs_scores))
-    #     seq = complete_seqs[i]
+        # Hypotheses for bleu corpus (needs to be a list)
+        hypotheses_bleu.append([w for w in seq if w not in {
+            word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
 
-    #     # References
-    #     img_caps = allcaps[0].tolist()
-    #     img_captions = list(
-    #         map(lambda c: [w for w in c if w not in {word_map['<start>'], word_map['<end>'], word_map['<pad>']}],
-    #             img_caps))  # remove <start> and pads
-    #     references.append(img_captions)
+        # hypotheses for coco (needs to be a string)
+        hypotheses = " ".join([rev_word_map[w] for w in seq if w not in {
+            word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
 
-    #     # Hypotheses for bleu corpus (needs to be a list)
-    #     hypotheses_bleu.append([w for w in seq if w not in {
-    #         word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
+        # for coco eval
+        if img_id.item() not in imgids_so_far:
+            list_hipotheses.append({
+                "image_id": img_id.item(),
+                "caption": hypotheses,
+            })
+            imgids_so_far.append(img_id.item())
 
-    #     # hypotheses for coco (needs to be a string)
-    #     hypotheses = " ".join([rev_word_map[w] for w in seq if w not in {
-    #         word_map['<start>'], word_map['<end>'], word_map['<pad>']}])
+    with open("SAT_discrete.json", 'w+') as f:
+        json.dump(list_hipotheses, f, indent=2)
 
-    #     # for coco eval
-    #     if img_id.item() not in imgids_so_far:
-    #         list_hipotheses.append({
-    #             "image_id": img_id.item(),
-    #             "caption": hypotheses,
-    #         })
-    #         imgids_so_far.append(img_id.item())
+    if MODEL_TYPE == "BASELINE":
+        with open("baseline.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "SAR_avg":
+        with open("SAR_avg.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "SAR_norm":
+        if MULTILEVEL_ATTENTION:
+            with open("SAR_norm.json", 'w+') as f:
+                json.dump(list_hipotheses, f, indent=2)
+        else:
+            with open("SAR_norm_no_multiattention.json", 'w+') as f:
+                json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "SAR_bert":
+        with open("SAR_bert.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    elif MODEL_TYPE == "SAR_norm_wt_m":
+        with open("SAR_norm_wt_m.json", 'w+') as f:
+            json.dump(list_hipotheses, f, indent=2)
+    else:
+        raise Exception("unknow model")
 
-    # with open("SAT_discrete.json", 'w+') as f:
-    #     json.dump(list_hipotheses, f, indent=2)
-
-    # if MODEL_TYPE == "BASELINE":
-    #     with open("baseline.json", 'w+') as f:
-    #         json.dump(list_hipotheses, f, indent=2)
-    # elif MODEL_TYPE == "SAR_avg":
-    #     with open("SAR_avg.json", 'w+') as f:
-    #         json.dump(list_hipotheses, f, indent=2)
-    # elif MODEL_TYPE == "SAR_norm":
-    #     if MULTILEVEL_ATTENTION:
-    #         with open("SAR_norm.json", 'w+') as f:
-    #             json.dump(list_hipotheses, f, indent=2)
-    #     else:
-    #         with open("SAR_norm_no_multiattention.json", 'w+') as f:
-    #             json.dump(list_hipotheses, f, indent=2)
-    # elif MODEL_TYPE == "SAR_bert":
-    #     with open("SAR_bert.json", 'w+') as f:
-    #         json.dump(list_hipotheses, f, indent=2)
-    # elif MODEL_TYPE == "SAR_norm_wt_m":
-    #     with open("SAR_norm_wt_m.json", 'w+') as f:
-    #         json.dump(list_hipotheses, f, indent=2)
-    # else:
-    #     raise Exception("unknow model")
-
-    # # Calculate BLEU-4 scores
-    # bleu4 = corpus_bleu(references, hypotheses_bleu)
+    # Calculate BLEU-4 scores
+    bleu4 = corpus_bleu(references, hypotheses_bleu)
 
     return None
 
