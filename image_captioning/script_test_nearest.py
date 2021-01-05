@@ -169,6 +169,7 @@ def evaluate(beam_size):
 
                 # (s, encoder_dim), (s, num_pixels)
                 awe, alpha = decoder.attention(encoder_out, h, retrieved_target)
+                print("alpha size", alpha.size())
                 alphas[:, step, :] = alpha
                 
                 print("alphas", alpha)
