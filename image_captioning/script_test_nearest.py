@@ -158,8 +158,8 @@ def evaluate(beam_size):
         alphas = torch.zeros(1, 39, 300).to(device)
         enter_retrieved=False
         # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
-        while True:
-            if img_id in [7134]:
+        if img_id in [7134]:
+            while True:
                 enter_retrieved=True
                 print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
                 #break
@@ -232,8 +232,9 @@ def evaluate(beam_size):
                 if step > 39:
                     break
                 step += 1
-            else:
-                continue
+        else:
+            continue
+        
         if enter_retrieved:
             print("img_id, retrieved_neighbors_index and all alphas", img_id, retrieved_neighbors_index, alphas)
 
