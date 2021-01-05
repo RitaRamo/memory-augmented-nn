@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_norm"
+MODEL_TYPE = "SAR_avg"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -125,6 +125,7 @@ def evaluate(beam_size):
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
         if img_id in [7342, 7134,  7540, 7463,  7266, 7452, 7164, 7662]:
             print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
+            #break
         
     #     #print("encoder_out", encoder_out.size())
     #     #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
