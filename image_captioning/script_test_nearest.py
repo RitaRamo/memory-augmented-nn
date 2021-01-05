@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_norm"
+MODEL_TYPE = "SAR_norm_wt_m"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -20,7 +20,7 @@ MULTILEVEL_ATTENTION =True
 
 #if MODEL_TYPE == "BASELINE":
 #checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
-checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
+checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
 
 print("checkpoint", checkpoint)
 # elif MODEL_TYPE == "SAR_avg":
