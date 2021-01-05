@@ -160,7 +160,7 @@ class MultiLevelAttention(nn.Module):
         #print("multilevel_cont", multilevel_context)
         #print("alter multilevel_cont", multilevel_context)
 
-        return multilevel_context, alpha
+        return multilevel_context, alpha_hat
 
 
 class DecoderWithAttention(nn.Module):

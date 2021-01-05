@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_norm"
+MODEL_TYPE = "SAR_avg"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -155,7 +155,7 @@ def evaluate(beam_size):
 
         encoder_out= decoder.attention.prepare_encoder_out(encoder_out) 
 
-        alphas = torch.zeros(1, 39, 196).to(device)
+        alphas = torch.zeros(1, 39, 2).to(device)
         enter_retrieved=False
         # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
         if img_id in [7134]:
