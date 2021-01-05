@@ -11,7 +11,7 @@ from tqdm import tqdm
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-MODEL_TYPE = "SAR_norm_wt_m"
+MODEL_TYPE = "SAR_norm"
 MULTILEVEL_ATTENTION =True
 #BASELINE
 #SAR_avg
@@ -20,7 +20,7 @@ MULTILEVEL_ATTENTION =True
 
 #if MODEL_TYPE == "BASELINE":
 #checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
-checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+str(MULTILEVEL_ATTENTION)+'.pth.tar'
+checkpoint = 'BEST_checkpoint_flickr8k_5_cap_per_img_5_min_word_freq_'+MODEL_TYPE+'.pth.tar'
 
 print("checkpoint", checkpoint)
 # elif MODEL_TYPE == "SAR_avg":
@@ -158,7 +158,7 @@ def evaluate(beam_size):
         alphas = torch.zeros(1, 39, 2).to(device)
         enter_retrieved=False
         # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
-        if img_id in [7164]:
+        if img_id in [7540]:
             while True:
                 enter_retrieved=True
                 print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
