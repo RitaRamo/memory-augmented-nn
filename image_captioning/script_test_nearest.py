@@ -155,10 +155,10 @@ def evaluate(beam_size):
 
         encoder_out= decoder.attention.prepare_encoder_out(encoder_out) 
 
-        alphas = torch.zeros(1, 39, 2).to(device)
+        alphas = torch.zeros(1, 39, 196).to(device)
         enter_retrieved=False
         # s is a number less than or equal to k, because sequences are removed from this process once they hit <end>
-        if img_id in [7452]:
+        if img_id in [7134]:
             while True:
                 enter_retrieved=True
                 print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
@@ -237,7 +237,7 @@ def evaluate(beam_size):
 
         if enter_retrieved:
             print("img_id, retrieved_neighbors_index and all alphas", img_id, retrieved_neighbors_index, alphas)
-
+            torch.save(alphas, 'attention_res')
         if k == beam_size:
             complete_seqs.extend(seqs[[incomplete_inds]].tolist())
             complete_seqs_scores.extend(top_k_scores[[incomplete_inds]])
