@@ -589,7 +589,7 @@ def main():
         print("the size", len(retrieved_neighbors_index))
 
         for i in range(len(retrieved_neighbors_index)):
-            print("\nfirst sentence", retrieved_neighbors_index[i])
+            print("\nfirst sentence", train_sents[i])
             print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[i]])
             print("actual input label", train_labels[i])
             print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[i]])
