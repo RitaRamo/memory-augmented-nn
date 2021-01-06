@@ -586,9 +586,9 @@ def main():
         target_neighbors=target_lookup[retrieved_neighbors_index]
         print("target_neighbors", target_neighbors)
 
-        print("the size", retrieved_neighbors_index.size())
+        print("the size", len(retrieved_neighbors_index))
 
-        for i in range(retrieved_neighbors_index.size()[0]):
+        for i in range(len(retrieved_neighbors_index)):
             print("\nfirst sentence", retrieved_neighbors_index[i])
             print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[i]])
             print("actual input label", train_labels[i])
