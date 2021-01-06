@@ -567,13 +567,10 @@ def main():
         raise Exception("Unknown model")
     
     #DEBUG
-    # train_iterator = torch.utils.data.DataLoader(
-    #     SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
-    #     batch_size=BATCH_SIZE, shuffle=False, num_workers=0
-    # )
-
-    # print("train sents", train_sents[])
-
+    train_iterator = torch.utils.data.DataLoader(
+        SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    )
     for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
         print("token to id", token_to_id)
         print("batch i", i)
