@@ -574,32 +574,31 @@ def main():
 
     # print("train sents", train_sents[])
 
-    # for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
-    #     print("token to id", token_to_id)
-    #     print("batch i", i)
-    #     print("sent_bert", sents_bert)
-    #     print("sents", sents)
-    #     print("len", lens)
-    #     print("labels", labels)
-    #     # 4 primeiras frases 
-    #     #pedir ao retrieval para cada uma destas frases o seu vizinho
-    #     # [0,1,2,3]
-    #     retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
-    #     print("nearest_input", retrieved_neighbors_index)
-    #     target_neighbors=target_lookup[retrieved_neighbors_index]
-    #     print("target_neighbors", target_neighbors)
+    for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
+        print("token to id", token_to_id)
+        print("batch i", i)
+        print("sent_bert", sents_bert)
+        print("sents", sents)
+        print("len", lens)
+        print("labels", labels)
+        # 4 primeiras frases 
+        #pedir ao retrieval para cada uma destas frases o seu vizinho
+        # [0,1,2,3]
+        retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
+        print("nearest_input", retrieved_neighbors_index)
+        target_neighbors=target_lookup[retrieved_neighbors_index]
+        print("target_neighbors", target_neighbors)
 
-    #     print("first sentence", retrieved_neighbors_index[0])
-    #     print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[0]])
-    #     print("actual input label", train_labels[0])
-    #     print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[0]])
+        print("the size", retrieved_neighbors_index.size())
 
-    #     print("\nfirst sentence", retrieved_neighbors_index[1])
-    #     print("\nactual input text", train_sents[1])
-    #     print("\n2º nearest retrieved text", train_sents[retrieved_neighbors_index[1]])
-    #     print("actual input label", train_labels[1])
-    #     print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[1]])
-    #     print(stop)
+        for i in range(retrieved_neighbors_index.size()[0]):
+            print("\nfirst sentence", retrieved_neighbors_index[i])
+            print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[i]])
+            print("actual input label", train_labels[i])
+            print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[i]])
+
+
+        print(stop)
     
     #####
     train_iterator = torch.utils.data.DataLoader(
