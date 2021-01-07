@@ -123,7 +123,7 @@ def evaluate(beam_size):
         
         input_imgs = encoder_out.mean(dim=1)
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
-        if img_id in [7422]:
+        if img_id in [7473]:
             print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
         else:
             continue
