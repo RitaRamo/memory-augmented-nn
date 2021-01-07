@@ -123,8 +123,11 @@ def evaluate(beam_size):
         
         input_imgs = encoder_out.mean(dim=1)
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
-        print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
-        print(stop)
+        if img_id in [7685, 7422]:
+            print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
+        else:
+            continue
+        #print(stop)
         #print("encoder_out", encoder_out.size())
         #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
         # We'll treat the problem as having a batch size of k
