@@ -123,7 +123,8 @@ def evaluate(beam_size):
         
         input_imgs = encoder_out.mean(dim=1)
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
-        
+        print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
+        print(stop)
         #print("encoder_out", encoder_out.size())
         #print("retrieved_neighbour_index", retrieved_neighbors_index.size())
         # We'll treat the problem as having a batch size of k
@@ -162,7 +163,7 @@ def evaluate(beam_size):
             while True:
                 enter_retrieved=True
                 print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
-                break
+                print(stop)
                 
                 embeddings = decoder.embedding(
                     k_prev_words).squeeze(1)  # (s, embed_dim)
