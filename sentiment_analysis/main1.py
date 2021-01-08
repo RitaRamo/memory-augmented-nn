@@ -394,11 +394,13 @@ class SARModel(nn.Module):
             init_cell= target_neighbors_representations
 
         elif MODEL_TYPE== "SAR_avg":
-            init_cell = self.init_c(target_neighbors_representations)
 
             if WITHOUT_RETRIEVED_MEMORY:
                 #equal to baseline
                 init_cell = torch.zeros(batch_size, HIDDEN_DIM).to(device)
+            else:
+                init_cell = self.init_c(target_neighbors_representations)
+
 
         elif MODEL_TYPE== "SAR_norm":
             init_cell = self.init_c(target_neighbors_representations)
