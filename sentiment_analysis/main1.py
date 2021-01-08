@@ -45,10 +45,10 @@ DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-MODEL_TYPE="SAR_-11"
+MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = True
 DEBUG = False
-WITHOUT_RETRIEVED_MEMORY=True
+WITHOUT_RETRIEVED_MEMORY=False
 
 #TODO: debug do retrieval
 
