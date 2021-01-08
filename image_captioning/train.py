@@ -54,7 +54,7 @@ print_freq = 100  # print training/validation stats every __ batches
 fine_tune_encoder = False  # fine-tune encoder?
 checkpoint = None  # path to checkpoint, None if none
 
-MULTILEVEL_ATTENTION = False
+MULTILEVEL_ATTENTION = True
 MODEL_TYPE = "SAR_avg"
 #BASELINE
 #SAR_avg
