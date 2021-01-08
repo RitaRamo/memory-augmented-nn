@@ -567,35 +567,35 @@ def main():
         raise Exception("Unknown model")
     
     #DEBUG
-    train_iterator = torch.utils.data.DataLoader(
-        SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
-        batch_size=BATCH_SIZE, shuffle=False, num_workers=0
-    )
-    for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
-        print("token to id", token_to_id)
-        print("batch i", i)
-        print("sent_bert", sents_bert)
-        print("sents", sents)
-        print("len", lens)
-        print("labels", labels)
-        # 4 primeiras frases 
-        #pedir ao retrieval para cada uma destas frases o seu vizinho
-        # [0,1,2,3]
-        retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
-        print("nearest_input", retrieved_neighbors_index)
-        target_neighbors=target_lookup[retrieved_neighbors_index]
-        print("target_neighbors", target_neighbors)
+    # train_iterator = torch.utils.data.DataLoader(
+    #     SADataset(train_sents, train_sents_ids, train_lens, train_labels, bert_model),
+    #     batch_size=BATCH_SIZE, shuffle=False, num_workers=0
+    # )
+    # for i, (sents_bert, sents, lens, labels) in enumerate(train_iterator):
+    #     print("token to id", token_to_id)
+    #     print("batch i", i)
+    #     print("sent_bert", sents_bert)
+    #     print("sents", sents)
+    #     print("len", lens)
+    #     print("labels", labels)
+    #     # 4 primeiras frases 
+    #     #pedir ao retrieval para cada uma destas frases o seu vizinho
+    #     # [0,1,2,3]
+    #     retrieved_neighbors_index = text_retrieval.retrieve_nearest_for_train_query(sents_bert.numpy())
+    #     print("nearest_input", retrieved_neighbors_index)
+    #     target_neighbors=target_lookup[retrieved_neighbors_index]
+    #     print("target_neighbors", target_neighbors)
 
-        print("the size", len(retrieved_neighbors_index))
+    #     print("the size", len(retrieved_neighbors_index))
 
-        for i in range(len(retrieved_neighbors_index)):
-            print("\nfirst sentence", train_sents[i])
-            print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[i]])
-            print("actual input label", train_labels[i])
-            print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[i]])
+    #     for i in range(len(retrieved_neighbors_index)):
+    #         print("\nfirst sentence", train_sents[i])
+    #         print("2º nearest retrieved text", train_sents[retrieved_neighbors_index[i]])
+    #         print("actual input label", train_labels[i])
+    #         print("2º nearest retrieved labels", train_labels[retrieved_neighbors_index[i]])
 
 
-        print(stop)
+    #     print(stop)
     
     #####
     train_iterator = torch.utils.data.DataLoader(
@@ -626,7 +626,8 @@ def main():
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print(f'The model has {count_parameters(model):,} trainable parameters')
-
+    print(stop) #TODO: remove this
+ 
     optimizer = optim.Adam(model.parameters())
 
     criterion = nn.BCEWithLogitsLoss()
