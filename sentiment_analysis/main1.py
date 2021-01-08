@@ -626,7 +626,7 @@ def main():
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
     print(f'The model has {count_parameters(model):,} trainable parameters')
-    print(stop) #TODO: remove this
+    print("see number of pars",stop) #TODO: remove this
  
     optimizer = optim.Adam(model.parameters())
 
