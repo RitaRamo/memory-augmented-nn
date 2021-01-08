@@ -127,6 +127,12 @@ def main():
     decoder = decoder.to(device)
     encoder = encoder.to(device)
 
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f'The decoder has {count_parameters(decoder):,} trainable parameters')
+    print(f'The encoder has {count_parameters(encoder):,} trainable parameters')
+    print("debug", stop)
     # Loss function
     criterion = nn.CrossEntropyLoss().to(device)  
 
