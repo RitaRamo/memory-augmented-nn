@@ -23,7 +23,6 @@ class SARModel(nn.Module):
         print("Model Name", MODEL_TYPE)
 
         if MODEL_TYPE == "SAR_-11":
-            print('hello')
             retrieved_dim = HIDDEN_DIM
         elif MODEL_TYPE == "SAR_avg":
             retrieved_dim = EMBEDDING_DIM  # retrieved target correspond to avg word embeddings from caption
@@ -148,7 +147,7 @@ class SARModel(nn.Module):
         # output_lengths torch.Size([64])
         # output (sent len, batch size, hid dim)
 
-        attn_output, alpha = self.attention(output, hidden, target_neighbors_representations)
+        attn_output, alpha = self.attention(output, hidden)
         # attn_output torch.Size([64, 512])
         # hidden = (batch size, hid dim)
         # self.fc(attn_output) torch.Size([64, 1])
@@ -169,7 +168,7 @@ class SARModel(nn.Module):
 
         elif MODEL_TYPE == "SAR_avg":
 
-            if self.without_retrieved_memory:
+            if WITHOUT_RETRIEVED_MEMORY:
                 # equal to baseline
                 init_cell = torch.zeros(BATCH_SIZE, HIDDEN_DIM).to(self.device)
             else:
