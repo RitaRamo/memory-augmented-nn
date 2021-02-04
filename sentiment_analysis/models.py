@@ -101,7 +101,7 @@ class SARModel(nn.Module):
 
         return multilevel_context, alpha_hat
 
-    def attention_baseline(self, hiddens, final_hidden):
+    def attention_baseline(self, hiddens, final_hidden, retrieved_target):
 
         hiddens = hiddens.permute(1, 0, 2)
         # hiddens torch.Size([64, 611, 512])
@@ -147,7 +147,7 @@ class SARModel(nn.Module):
         # output_lengths torch.Size([64])
         # output (sent len, batch size, hid dim)
 
-        attn_output, alpha = self.attention(output, hidden)
+        attn_output, alpha = self.attention(output, hidden, target_neighbors_representations)
         # attn_output torch.Size([64, 512])
         # hidden = (batch size, hid dim)
         # self.fc(attn_output) torch.Size([64, 1])
