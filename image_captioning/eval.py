@@ -70,11 +70,11 @@ def evaluate(beam_size):
     :return: BLEU-4 score
     """
 
-    train_retrieval_loader = torch.utils.data.DataLoader(TrainRetrievalDataset(data_folder, data_name),
-    batch_size=32, shuffle=True, num_workers=1)#, pin_memory=True)
+    train_retrieval_loader = torch.utils.data.DataLoader(
+        TrainRetrievalDataset(data_folder, data_name),batch_size=32, shuffle=True, num_workers=1
+    )#, pin_memory=True)
 
     retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader, device)
-
 
     # DataLoader
     loader = torch.utils.data.DataLoader(
@@ -253,27 +253,27 @@ def evaluate(beam_size):
             })
             imgids_so_far.append(img_id.item())
 
-    with open("SAT_discretebeam5.json", 'w+') as f:
+    with open("SAT_discrete.json", 'w+') as f:
         json.dump(list_hipotheses, f, indent=2)
 
     if MODEL_TYPE == "BASELINE":
-        with open("baselinebeam5.json", 'w+') as f:
+        with open("baseline.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_avg":
-        with open("SAR_avgbeam5.json", 'w+') as f:
+        with open("SAR_avg.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_norm":
         if MULTILEVEL_ATTENTION:
-            with open("SAR_normbeam5.json", 'w+') as f:
+            with open("SAR_norm.json", 'w+') as f:
                 json.dump(list_hipotheses, f, indent=2)
         else:
-            with open("SAR_norm_no_multiattentionbeam5.json", 'w+') as f:
+            with open("SAR_norm_no_multiattention.json", 'w+') as f:
                 json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_bert":
-        with open("SAR_bertbeam5.json", 'w+') as f:
+        with open("SAR_bert.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     elif MODEL_TYPE == "SAR_norm_wt_m":
-        with open("SAR_norm_wt_mbeam5.json", 'w+') as f:
+        with open("SAR_norm_wt_m.json", 'w+') as f:
             json.dump(list_hipotheses, f, indent=2)
     else:
         raise Exception("unknow model")
