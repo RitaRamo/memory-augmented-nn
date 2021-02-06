@@ -238,7 +238,7 @@ def main():
         if valid_acc > best_valid_acc:
             counter_without_improvement = 0
             best_valid_acc = valid_acc
-            torch.save(model.state_dict(), 'tut2-model.pt')
+            torch.save(model.state_dict(), 'SAR_model'+MODEL_TYPE+str(MULTI_ATTENTION)+str(WITHOUT_RETRIEVED_MEMORY)+'.pt')
         else:
             counter_without_improvement += 1
 
@@ -247,7 +247,7 @@ def main():
         print(f'\t Val. Loss: {valid_loss:.4f} |  Val. Acc: {valid_acc * 100:.4f}% | Val. f1-score {valid_f1:.4f}')
 
 
-    model.load_state_dict(torch.load('tut2-model.pt'))
+    model.load_state_dict(torch.load('SAR_model'+MODEL_TYPE+str(MULTI_ATTENTION)+str(WITHOUT_RETRIEVED_MEMORY)+'.pt'))
 
     test_loss, test_acc, test_f1 = evaluate(model, test_iterator, criterion)
 
