@@ -335,7 +335,7 @@ class SARModel(nn.Module):
         #print('embedded', embedded.size())
 
         # pack sequence
-        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to("cpu"))
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to(device))
         # packed_embedded torch.Size([9152, 100])
         #print("packed embedded", packed_embedded)
         #print('packed_embedded', packed_embedded.data.size())
