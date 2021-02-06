@@ -1,6 +1,6 @@
 MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = True
-DEBUG = True
+DEBUG = False
 WITHOUT_RETRIEVED_MEMORY=True
 
 DATA_FOLDER="dataset_splits/"
