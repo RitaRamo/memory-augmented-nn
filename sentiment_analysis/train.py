@@ -160,6 +160,9 @@ def main():
             epoch_loss += loss.item()
             epoch_acc += acc.item()
 
+            if batch %20==0:
+                print(f'\tTrain Loss: {(epoch_loss/ (batch+1)):.4f} | Train Acc: {(epoch_acc/ (batch+1)) * 100:.4f}%')
+
         all_preds = torch.cat(all_preds, dim=-1)
         all_labels = torch.cat(all_labels, dim=-1)
 
@@ -201,6 +204,9 @@ def main():
 
                 epoch_loss += loss.item()
                 epoch_acc += acc.item()
+
+                if batch %20==0:
+                    print(f'\tVal (or Test) Loss: {(epoch_loss/ (batch+1)):.4f} | Val (or Test) Acc: {(epoch_acc/ (batch+1)) * 100:.4f}%')
 
         all_preds = torch.cat(all_preds, dim=-1)
         all_labels = torch.cat(all_labels, dim=-1)
