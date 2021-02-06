@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, Dataset
 from sklearn.model_selection import train_test_split
 from sentence_transformers import SentenceTransformer
 import faiss
-#import fasttext
+import fasttext
 
 seed = 1234
 
@@ -255,7 +255,6 @@ class SARModel(nn.Module):
     def attention_multilevel(self, hiddens, final_hidden, retrieved_target):
         """
         Forward propagation.
-
         :param hiddens: encoded images, a tensor of dimension (batch_size, num_pixels, encoder_dim)
         :param final_hidden: previous decoder output, a tensor of dimension (batch_size, decoder_dim)
         :return: attention weighted encoding, weights
@@ -520,28 +519,28 @@ def main():
     print("loading the two representations for the binary targets")
     if MODEL_TYPE == "BASELINE":
         # the baseline does not have retrieved target
-        # it is just for code coherence in respect to SAR Model that needs it for the lstm init states
-        target_representations = torch.zeros(2, HIDDEN_DIM).to(device)
+        #it is just for code coherence in respect to SAR Model that needs it for the lstm init states
+        target_representations= torch.zeros(2, HIDDEN_DIM).to(device)
 
     elif MODEL_TYPE== "SAR_-11":
-        target_representations = torch.ones(2, HIDDEN_DIM).to(device)
-        target_representations[0, :] = -1.0
-        # target representations is a vector of either -1 or 1s
-        # torch.tensor([-1*torch.ones(BATCH_SIZE, HIDDEN_DIM), torch.ones(BATCH_SIZE, HIDDEN_DIM)]).to(device)
-
+        target_representations= torch.ones(2, HIDDEN_DIM).to(device)
+        target_representations[0,:] = -1.0 
+        #target representations is a vector of either -1 or 1s
+        #torch.tensor([-1*torch.ones(BATCH_SIZE, HIDDEN_DIM), torch.ones(BATCH_SIZE, HIDDEN_DIM)]).to(device)
+   
     elif MODEL_TYPE == "SAR_avg":
-        train_neg_sents_ids = torch.tensor(train_sents_ids)[torch.tensor(train_labels) == 0]
-        train_pos_sents_ids = torch.tensor(train_sents_ids)[torch.tensor(train_labels) == 1]
+        train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
+        train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
+       
+        #TODO:ONLY 10
+        negs_embeddings=model.embedding(train_neg_sents_ids.long())
+        pos_embeddings=model.embedding(train_pos_sents_ids.long())
 
-        # TODO:ONLY 10
-        negs_embeddings = model.embedding(train_neg_sents_ids.long())
-        pos_embeddings = model.embedding(train_pos_sents_ids.long())
+        avg_negs_embedding=negs_embeddings.mean(1).mean(0)
+        avg_pos_embedding=pos_embeddings.mean(1).mean(0)
 
-        avg_negs_embedding = negs_embeddings.mean(1).mean(0)
-        avg_pos_embedding = pos_embeddings.mean(1).mean(0)
-
-        target_representations = torch.cat((avg_negs_embedding.unsqueeze(0), avg_pos_embedding.unsqueeze(0)), dim=0)
-
+        target_representations= torch.cat((avg_negs_embedding.unsqueeze(0), avg_pos_embedding.unsqueeze(0)), dim=0)
+    
     elif MODEL_TYPE == "SAR_norm":
         train_neg_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==0]
         train_pos_sents_ids=torch.tensor(train_sents_ids)[torch.tensor(train_labels)==1]
