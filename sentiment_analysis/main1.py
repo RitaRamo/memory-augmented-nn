@@ -47,7 +47,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print("device", device)
 MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = True
-DEBUG = True
+DEBUG = False
 WITHOUT_RETRIEVED_MEMORY=True
 
 #TODO: debug do retrieval
