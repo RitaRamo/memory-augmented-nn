@@ -44,7 +44,7 @@ N_LAYERS = 1
 DROPOUT = 0.5
 #device = "cpu"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+print("device", device)
 MODEL_TYPE="SAR_avg"
 MULTI_ATTENTION = True
 DEBUG = True
@@ -335,7 +335,7 @@ class SARModel(nn.Module):
         #print('embedded', embedded.size())
 
         # pack sequence
-        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to(device))
+        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths.to("cpu"))
         # packed_embedded torch.Size([9152, 100])
         #print("packed embedded", packed_embedded)
         #print('packed_embedded', packed_embedded.data.size())
