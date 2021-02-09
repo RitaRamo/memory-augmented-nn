@@ -71,7 +71,7 @@ def evaluate(beam_size):
     """
 
     train_retrieval_loader = torch.utils.data.DataLoader(
-        TrainRetrievalDataset(data_folder, data_name),batch_size=32, shuffle=True, num_workers=1
+        TrainRetrievalDataset(data_folder, data_name),batch_size=16, shuffle=True, num_workers=1
     )#, pin_memory=True)
 
     retrieval = ImageRetrieval(decoder.encoder_dim, encoder, train_retrieval_loader, device)
@@ -123,7 +123,7 @@ def evaluate(beam_size):
         
         input_imgs = encoder_out.mean(dim=1)
         retrieved_neighbors_index=retrieval.retrieve_nearest_for_val_or_test_query(input_imgs.cpu().numpy())
-        if img_id in [7473]:
+        if img_id in [7463, 7532, 7488, 7194, 7135,7717, 7655]:
             print("img_id and retrieved retrieved_neighbors_index", img_id, retrieved_neighbors_index)
         else:
             continue
